@@ -17,16 +17,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This software includes third-party components licensed under the MIT License:
-
-- BearSSL (https://bearssl.org/)
-  Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>
-
-- miniz
-  Copyright 2013-2014 RAD Game Tools and Valve Software  
-  Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
-
-The full license texts for these components are provided in the LICENSES/ directory.
