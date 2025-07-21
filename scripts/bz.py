@@ -241,9 +241,9 @@ def compile(cmd):
                     f.write(cl_args)
                     f.flush()
                         
-                    new_cmd = vs_setup + '@' + rsp_file.name
+                    new_cmd = vs_setup + '@' + path
                     if args.verbose:
-                        print('Using response file: %s' % rsp_file.name)
+                        print('Using response file: %s' % path)
                         print('Modified command: %s' % new_cmd)
                         
             if len(cmd_parts) == 2:

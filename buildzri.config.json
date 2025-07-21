@@ -28,7 +28,7 @@
             "/utf-8",
             "/EHsc",
             "/Os",
-            "/Fe:./bin/pocket-http-${BZ_OS}_${BZ_TARGET_ARCH}.exe"
+            "/link"
         ]
     },
     "definitions": {
