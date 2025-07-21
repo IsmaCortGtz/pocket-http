@@ -1,0 +1,49 @@
+{
+    "std": "c++17",
+    "name": "pocket-http",
+    "version": "1.0.0",
+    "output": "./bin/pocket-http-${BZ_OS}_${BZ_TARGET_ARCH}",
+    "include": {
+        "*": [
+            ".",
+            "include",
+            "include/bearssl",
+            "src/bearssl"
+        ]
+    },
+    "source": {
+        "*": [
+            "include/miniz/miniz.c",
+            "src/bearssl/**/*.c",
+            "src/**/*.cpp",
+            "main.cpp"
+        ]
+    },
+    "options": {
+        "linux": [
+            "-mavx2",
+            "-Os"
+        ],
+        "windows": [
+            "/utf-8",
+            "/EHsc",
+            "/Os",
+            "/Fe:./bin/pocket-http-${BZ_OS}_${BZ_TARGET_ARCH}.exe"
+        ]
+    },
+    "definitions": {
+        "*": [
+            "POCKET_HTTP_LOGS",
+            "POCKET_HTTP_USE_BEARSSL"
+        ],
+        "windows": [
+            "_WEBSOCKETPP_CPP11_STL_",
+            "_HAS_STD_BYTE=0",
+            "TRAY_WINAPI=1",
+            "UNICODE",
+            "_UNICODE",
+            "__m128i_u=__m128i",
+            "__m256i_u=__m256i"
+        ]
+    }
+}
