@@ -6,19 +6,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
+  build-linux-x64:
     runs-on: ubuntu-22.04
-    
-    strategy:
-      matrix:
-        arch: [x64, arm64, armhf]
         
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
     - name: Install Libraries
-      if: ${{ matrix.arch == 'x64' }}
       run: |
         sudo apt-get update
         sudo apt-get install -y -f \
@@ -27,41 +22,41 @@ jobs:
         pkg-config
 
     - name: Build
-      if: ${{ matrix.arch == 'x64' }}
       run: |
         ./scripts/bz.py
         chmod +x ./bin/pocket-http-linux_x64
         
     - name: List bin directory contents
-      if: ${{ matrix.arch == 'x64' }}
       run: ls -la ./bin/
       
     - name: Run Binary
-      if: ${{ matrix.arch == 'x64' }}
       run: ./bin/pocket-http-linux_x64 GET "https://www.example.com"
-        
-    - name: Build
-      if: ${{ matrix.arch == 'arm64' || matrix.arch == 'armhf' }}
-      uses: uraimo/run-on-arch-action@v2
-      id: build-package
-      with:
-        arch: ${{ matrix.arch == 'arm64' && 'aarch64' || 'armv7' }}
-        distro: ubuntu20.04
-        install: |
-          apt-get update
-          apt-get install -y -f \
-          build-essential \
-          g++ \
-          pkg-config \
-          git \
-          python3
 
-        run: |
-          git config --global --add safe.directory $GITHUB_WORKSPACE
-          ./scripts/bz.py
-          chmod +x ./bin/pocket-http-linux_${{ matrix.arch == 'arm64' && 'arm64' || 'armhf' }}
-          ls -la ./bin/
-          ./bin/pocket-http-linux_${{ matrix.arch == 'arm64' && 'arm64' || 'armhf' }} GET "https://www.example.com"
+  build-linux-arm64:
+    runs-on: ubuntu-22.04-arm64
+        
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install Libraries
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y -f \
+        build-essential \
+        g++ \
+        pkg-config
+
+    - name: Build
+      run: |
+        ./scripts/bz.py
+        chmod +x ./bin/pocket-http-linux_arm64
+        
+    - name: List bin directory contents
+      run: ls -la ./bin/
+      
+    - name: Run Binary
+      run: ./bin/pocket-http-linux_arm64 GET "https://www.example.com"
 
 
   build-windows:
