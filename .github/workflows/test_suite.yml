@@ -56,8 +56,6 @@ jobs:
           git \
           python3
 
-        githubToken: ${{ github.token }}
-
         run: |
           git config --global --add safe.directory $GITHUB_WORKSPACE
           ./scripts/bz.py
@@ -85,16 +83,11 @@ jobs:
       shell: cmd
 
   build-darwin:
+    runs-on: macos-14
     strategy:
       matrix:
-        include:
-          - arch: x64
-            runner: macos-13
-          - arch: arm64
-            runner: macos-14
+        arch: [x64, arm64]
     
-    runs-on: ${{ matrix.runner }}
-        
     steps:
     - name: Checkout
       uses: actions/checkout@v3
