@@ -21,7 +21,7 @@
     },
     "options": {
         "linux": [
-            "-mavx2",
+            "-no-pie",
             "-Os"
         ],
         "windows": [
