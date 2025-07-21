@@ -33,7 +33,7 @@ jobs:
       run: ./bin/pocket-http-linux_x64 GET "https://www.example.com"
 
   build-linux-arm64:
-    runs-on: ubuntu-22.04-arm64
+    runs-on: ubuntu-22.04-arm
         
     steps:
     - name: Checkout
