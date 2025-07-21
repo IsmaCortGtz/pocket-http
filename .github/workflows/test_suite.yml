@@ -32,6 +32,10 @@ jobs:
         ./scripts/bz.py
         chmod +x ./bin/pocket-http-linux_x64
         
+    - name: List bin directory contents
+      if: ${{ matrix.arch == 'x64' }}
+      run: ls -la ./bin/
+      
     - name: Run Binary
       if: ${{ matrix.arch == 'x64' }}
       run: ./bin/pocket-http-linux_x64 GET "https://www.example.com"
@@ -58,6 +62,7 @@ jobs:
           git config --global --add safe.directory $GITHUB_WORKSPACE
           ./scripts/bz.py
           chmod +x ./bin/pocket-http-linux_${{ matrix.arch == 'arm64' && 'arm64' || 'armhf' }}
+          ls -la ./bin/
           ./bin/pocket-http-linux_${{ matrix.arch == 'arm64' && 'arm64' || 'armhf' }} GET "https://www.example.com"
 
 
@@ -69,6 +74,10 @@ jobs:
 
     - name: Build
       run: python ./scripts/bz.py
+      shell: cmd
+      
+    - name: List bin directory contents
+      run: dir bin
       shell: cmd
       
     - name: Run Binary
@@ -85,6 +94,9 @@ jobs:
       run: |
         ./scripts/bz.py --target_arch x64
         chmod +x ./bin/pocket-http-mac_x64
+        
+    - name: List bin directory contents
+      run: ls -la ./bin/
         
     - name: Run Binary
       run: ./bin/pocket-http-mac_x64 GET "https://www.example.com"
