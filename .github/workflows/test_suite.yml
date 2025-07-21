@@ -81,22 +81,31 @@ jobs:
       shell: cmd
       
     - name: Run Binary
-      run: .\bin\pocket-http-windows_x64.exe GET "https://www.example.com"
+      run: .\bin\pocket-http-win_x64.exe GET "https://www.example.com"
       shell: cmd
 
   build-darwin:
-    runs-on: macos-13
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: macos-13
+          - arch: arm64
+            runner: macos-14
+    
+    runs-on: ${{ matrix.runner }}
+        
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
     - name: Build
       run: |
-        ./scripts/bz.py --target_arch x64
-        chmod +x ./bin/pocket-http-mac_x64
+        ./scripts/bz.py --target_arch ${{ matrix.arch }}
+        chmod +x ./bin/pocket-http-mac_${{ matrix.arch }}
         
     - name: List bin directory contents
       run: ls -la ./bin/
         
     - name: Run Binary
-      run: ./bin/pocket-http-mac_x64 GET "https://www.example.com"
+      run: ./bin/pocket-http-mac_${{ matrix.arch }} GET "https://www.example.com"
