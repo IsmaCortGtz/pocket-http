@@ -1,31 +1,13 @@
-#include <pockethttp/Sockets/SocketWrapper.hpp>
-#ifdef POCKET_HTTP_LOGS
-#include <iostream>
-#endif
-
 #ifdef _WIN32
+#include "pockethttp/Sockets/SocketWrapper.hpp"
+#include "pockethttp/Logs.hpp"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 typedef int socklen_t;
-#else
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <unistd.h>
-typedef int SOCKET;
-#define INVALID_SOCKET (-1)
-#define SOCKET_ERROR (-1)
-#define closesocket(s) close(s)
-#endif
 
 namespace pockethttp {
 
-#ifdef _WIN32
   WinSockManager& WinSockManager::getInstance() {
     static WinSockManager instance;
     return instance;
@@ -39,24 +21,19 @@ namespace pockethttp {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
       initialized_ = true;
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] WinSock initialized successfully" << std::endl;
-#endif
+      pockethttp_log("[TCPSocket] WinSock initialized successfully");
     } else {
-#ifdef POCKET_HTTP_LOGS
-      std::cerr << "[PocketHttp::TCPSocket] Failed to initialize WinSock" << std::endl;
-#endif
+      pockethttp_error("[TCPSocket] Failed to initialize WinSock");
     }
   }
-
+  
   WinSockManager::~WinSockManager() {
     if (initialized_) {
       WSACleanup();
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] WinSock cleanup completed" << std::endl;
-#endif
+      pockethttp_log("[PocketHttp::TCPSocket] WinSock cleanup completed");
     }
   }
-#endif
 
 } // namespace pockethttp
+
+#endif

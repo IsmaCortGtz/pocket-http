@@ -1,87 +1,69 @@
 #ifndef POCKET_HTTP_REQUEST_HPP
 #define POCKET_HTTP_REQUEST_HPP
 
-#include <pockethttp/Headers.hpp>
+#include "pockethttp/Buffer.hpp"
+#include "pockethttp/Headers.hpp"
 #include <regex>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <functional>
+
 
 namespace pockethttp {
+  
+  typedef std::function<bool(unsigned char* data, size_t* read_data, const size_t max_size, const size_t total_read)> RequestCallback;
+
+  struct FormDataItem {
+    std::string name;
+
+    // Only one of the following two are required
+    std::string value = "";
+    RequestCallback value_callback = nullptr;
+
+    // When value_callback is set (if one is missing an exception will be thrown):
+    std::string filename = "";
+    std::string content_type = "";
+    size_t content_length = pockethttp::Buffer::error; /** Needed only when use_chunked_transfer_encoding is false */
+  };
+
+  struct FormDataRequest {
+    std::string method;
+    std::string url;
+    Headers headers;
+    std::vector<FormDataItem> form_data;
+  };
 
   struct Request {
-      std::string version = "HTTP/1.1"; // Default HTTP version
-      std::string method;
-      std::string url;
-      Headers headers;
-      std::vector<uint8_t> body;
+    std::string method;
+    std::string url;
+    Headers headers;
+
+    // Only one of the following two are required
+    std::string body = "";
+    RequestCallback body_callback = nullptr;
   };
 
   struct Remote {
-      std::string protocol;
-      std::string host;
-      std::string path;
-      uint16_t port;
+    std::string protocol;
+    std::string host;
+    std::string path;
+    uint16_t port;
+  };
+
+  struct FormDataSendState {
+    std::vector<FormDataItem>::iterator current_item;
+    unsigned short current_line = 1;
+    size_t current_offset = 0;
+    bool sending_last_boundary = false;
+    size_t last_boundary_offset = 0;
   };
 
   namespace utils {
 
-    Remote parseUrl(const std::string& url) {
-      Remote remote;
-
-      if (url.empty()) {
-        throw std::invalid_argument("URL cannot be empty");
-      }
-
-      // Regex para parsear URL completa
-      // Captura: protocol://host:port/path
-      std::regex urlRegex(R"(^(https?):\/\/([^:\/\s]+)(?::(\d+))?(\/.*)?$)");
-      std::smatch matches;
-
-      if (!std::regex_match(url, matches, urlRegex)) {
-        throw std::invalid_argument("Invalid URL format");
-      }
-
-      // Extraer componentes
-      remote.protocol = matches[1].str();
-      remote.host = matches[2].str();
-
-      // Puerto - usar default si no está especificado
-      if (matches[3].matched) {
-        remote.port = static_cast<uint16_t>(std::stoi(matches[3].str()));
-      } else {
-        // Puerto por defecto según protocolo
-        if (remote.protocol == "https") {
-          remote.port = 443;
-        } else if (remote.protocol == "http") {
-          remote.port = 80;
-        } else {
-          throw std::invalid_argument(
-              "Unsupported protocol: " + remote.protocol);
-        }
-      }
-
-      // Path - usar "/" si no está especificado
-      if (matches[4].matched) {
-        remote.path = matches[4].str();
-      } else {
-        remote.path = "/";
-      }
-
-      return remote;
-    }
-
-    std::string getProtocol(const std::string& url) {
-      std::regex protocolRegex(R"(^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/)");
-      std::smatch match;
-
-      if (std::regex_search(url, match, protocolRegex)) {
-        return match[1].str();
-      } else {
-        throw std::invalid_argument("URL does not contain a valid protocol");
-      }
-    }
-
+    Remote parseUrl(const std::string& url);
+    std::string getProtocol(const std::string& url);
+    
   } // namespace utils
 
 } // namespace pockethttp

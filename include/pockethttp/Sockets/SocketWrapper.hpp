@@ -4,6 +4,14 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
+typedef int SOCKET;
+#endif
+
 namespace pockethttp {
 
 #ifdef _WIN32
@@ -30,12 +38,18 @@ namespace pockethttp {
       virtual void disconnect() = 0;
 
       // Sending and receiving data
-      virtual bool send(const std::vector<uint8_t>& data) = 0;
-      virtual std::vector<uint8_t> receive() = 0;
+      virtual size_t send(const unsigned char* buffer, const size_t size) = 0;
+      virtual size_t receive(unsigned char* buffer, size_t size, const int64_t& timeout) = 0;
 
       // Utility methods
       virtual bool isConnected() = 0;
+      virtual size_t getAvailableOutBytes() const = 0;
       virtual int64_t getTimestamp() const = 0;
+    
+      protected:
+        SOCKET socket_fd_;
+        int64_t last_used_timestamp_ = 0;
+        bool connected_;
   };
 
 } // namespace pockethttp

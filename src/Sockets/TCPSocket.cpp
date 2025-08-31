@@ -1,5 +1,8 @@
-#include <pockethttp/Sockets/TCPSocket.hpp>
-#include <pockethttp/Timestamp.hpp>
+#include "pockethttp/Buffer.hpp"
+#include "pockethttp/Sockets/TCPSocket.hpp"
+#include "pockethttp/Sockets/SocketWrapper.hpp"
+#include "pockethttp/Timestamp.hpp"
+#include "pockethttp/Logs.hpp"
 #include <string>
 #include <iostream>
 #include <cstring>
@@ -13,6 +16,7 @@
     typedef int socklen_t;
 #else
     #include <sys/socket.h>
+    #include <sys/ioctl.h>
     #include <netinet/in.h>
     #include <netinet/tcp.h>  
     #include <arpa/inet.h>
@@ -29,36 +33,28 @@
 namespace pockethttp {
 
   TCPSocket::TCPSocket() : socket_fd_(INVALID_SOCKET), connected_(false) {
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] TCPSocket constructor called" << std::endl;
-#endif
+    pockethttp_log("[TCPSocket] TCPSocket constructor called");
     #ifdef _WIN32
       auto& manager = WinSockManager::getInstance();
       if (!manager.isInitialized()) {
-#ifdef POCKET_HTTP_LOGS
-        std::cerr << "[PocketHttp::TCPSocket] WinSock not initialized, throwing exception" << std::endl;
-#endif
+        pockethttp_error("[TCPSocket] WinSock not initialized, throwing exception");
         throw std::runtime_error("WinSock initialization failed");
       }
     #endif
   }
 
   TCPSocket::~TCPSocket() {
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] TCPSocket destructor called" << std::endl;
-#endif
-    disconnect();
+    pockethttp_log("[TCPSocket] TCPSocket destructor called");
+    this->disconnect();
   }
 
+
   bool TCPSocket::connect(const std::string &host, int port) {
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Attempting to connect to " << host << ":" << port << std::endl;
-#endif
+    pockethttp_log("[TCPSocket] Attempting to connect to " << host << ":" << port);
+
     if (connected_ || socket_fd_ != INVALID_SOCKET) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::TCPSocket] Socket already connected, disconnecting first" << std::endl;
-#endif
-        disconnect();
+      pockethttp_log("[TCPSocket] Socket already connected, disconnecting first");
+      disconnect();
     }
     
     struct addrinfo hints, *result;
@@ -69,17 +65,11 @@ namespace pockethttp {
     std::string port_str = std::to_string(port);
     int status = getaddrinfo(host.c_str(), port_str.c_str(), &hints, &result);
     if (status != 0) {
-      std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
-#ifdef POCKET_HTTP_LOGS
-      std::cerr << "[PocketHttp::TCPSocket] Failed to resolve hostname: " << host << std::endl;
-#endif
+      pockethttp_error("[TCPSocket] Failed to resolve hostname: " << host);
       return false;
     }
-    
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Hostname resolved successfully" << std::endl;
-#endif
-    
+
+    pockethttp_log("[TCPSocket] Hostname resolved successfully");
     std::vector<struct addrinfo*> ipv4_addresses;
     std::vector<struct addrinfo*> ipv6_addresses;
     
@@ -91,10 +81,10 @@ namespace pockethttp {
       }
     }
 
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Found " << ipv4_addresses.size() << " IPv4 addresses and " 
-              << ipv6_addresses.size() << " IPv6 addresses" << std::endl;
-#endif
+    pockethttp_log(
+      "[TCPSocket] Found " << ipv4_addresses.size() << " IPv4 addresses and " 
+      << ipv6_addresses.size() << " IPv6 addresses"
+    );
 
     size_t ipv4_tried = 0;
     size_t ipv6_tried = 0;
@@ -116,17 +106,14 @@ namespace pockethttp {
         addresses.push_back(ipv6_addresses[ipv6_tried]);
         ipv6_tried++;
       }
-      
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] Attempting parallel connection to " << addresses.size() << " addresses" << std::endl;
-#endif
-      
+
+      pockethttp_log("[TCPSocket] Attempting parallel connection to " << addresses.size() << " addresses");
+
       for (auto addr_ptr : addresses) {
         SOCKET sock = socket(addr_ptr->ai_family, addr_ptr->ai_socktype, addr_ptr->ai_protocol);
+        
         if (sock == INVALID_SOCKET) {
-#ifdef POCKET_HTTP_LOGS
-          std::cerr << "[PocketHttp::TCPSocket] Failed to create socket" << std::endl;
-#endif
+          pockethttp_error("[TCPSocket] Failed to create socket");
           continue;
         }
             
@@ -143,17 +130,13 @@ namespace pockethttp {
           #ifdef _WIN32
             int error = WSAGetLastError();
             if (error != WSAEWOULDBLOCK) {
-#ifdef POCKET_HTTP_LOGS
-              std::cerr << "[PocketHttp::TCPSocket] Connect failed with error: " << error << std::endl;
-#endif
+              pockethttp_error("[TCPSocket] Connect failed with error: " << error);
               closesocket(sock);
               continue;
             }
           #else
             if (errno != EINPROGRESS) {
-#ifdef POCKET_HTTP_LOGS
-              std::cerr << "[PocketHttp::TCPSocket] Connect failed: " << strerror(errno) << std::endl;
-#endif
+              pockethttp_error("[TCPSocket] Connect failed: " << strerror(errno));
               closesocket(sock);
               continue;
             }
@@ -164,9 +147,7 @@ namespace pockethttp {
       }
         
       if (sockets.empty()) {
-#ifdef POCKET_HTTP_LOGS
-        std::cerr << "[PocketHttp::TCPSocket] No sockets created for this batch" << std::endl;
-#endif
+        pockethttp_error("[TCPSocket] No sockets created for this batch");
         continue;
       }
         
@@ -195,15 +176,11 @@ namespace pockethttp {
         #endif
             
         if (select_result == SOCKET_ERROR) {
-#ifdef POCKET_HTTP_LOGS
-          std::cerr << "[PocketHttp::TCPSocket] Select failed during connection" << std::endl;
-#endif
+          pockethttp_error("[TCPSocket] Select failed during connection");
           break;
         }
         if (select_result == 0) {
-#ifdef POCKET_HTTP_LOGS
-          std::cout << "[PocketHttp::TCPSocket] Connection timeout" << std::endl;
-#endif
+          pockethttp_log("[TCPSocket] Connection timeout");
           break;
         }
             
@@ -211,9 +188,7 @@ namespace pockethttp {
           SOCKET sock = sockets[i];
                 
           if (FD_ISSET(sock, &error_fds)) {
-#ifdef POCKET_HTTP_LOGS
-            std::cerr << "[PocketHttp::TCPSocket] Socket error detected" << std::endl;
-#endif
+            pockethttp_error("[TCPSocket] Socket error detected");
             closesocket(sock);
             sockets.erase(sockets.begin() + i);
             addresses.erase(addresses.begin() + i);
@@ -226,213 +201,174 @@ namespace pockethttp {
             socklen_t error_len = sizeof(error);
                     
             #ifdef _WIN32
-              if (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&error, &error_len) == 0 && error == 0) {
+              int sockopt = (getsockopt(sock, SOL_SOCKET, SO_ERROR, (char*)&error, &error_len) == 0 && error == 0);
             #else
-              if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &error_len) == 0 && error == 0) {
+              int sockopt = (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &error_len) == 0 && error == 0);
             #endif
-                char addr_str[INET6_ADDRSTRLEN];
-                void* addr;
-                if (addresses[i]->ai_family == AF_INET) {
-                  struct sockaddr_in* ipv4 = (struct sockaddr_in*)addresses[i]->ai_addr;
-                  addr = &(ipv4->sin_addr);
-                } else {
-                  struct sockaddr_in6* ipv6 = (struct sockaddr_in6*)addresses[i]->ai_addr;
-                  addr = &(ipv6->sin6_addr);
-                }
-                
-                inet_ntop(addresses[i]->ai_family, addr, addr_str, INET6_ADDRSTRLEN);
-                        
-#ifdef POCKET_HTTP_LOGS
-                std::cout << "[PocketHttp::TCPSocket] Successfully connected to " << addr_str << ":" << port << std::endl;
-#endif
-                        
-                #ifdef _WIN32
-                  unsigned long mode = 0;
-                  ioctlsocket(sock, FIONBIO, &mode);
-                #else
-                  int flags = fcntl(sock, F_GETFL, 0);
-                  fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
-                #endif
-                        
-                for (size_t j = 0; j < sockets.size(); ++j) {
-                  if (j != i) {
-                    closesocket(sockets[j]);
-                  }
-                }
-                        
-                socket_fd_ = sock;
-                connected_ = true;
-                last_used_timestamp_ = pockethttp::Timestamp::getCurrentTimestamp();
-                        
-                freeaddrinfo(result);
-                return true;
+
+            if (sockopt) {
+              char addr_str[INET6_ADDRSTRLEN];
+              void* addr;
+              if (addresses[i]->ai_family == AF_INET) {
+                struct sockaddr_in* ipv4 = (struct sockaddr_in*)addresses[i]->ai_addr;
+                addr = &(ipv4->sin_addr);
               } else {
-#ifdef POCKET_HTTP_LOGS
-                std::cerr << "[PocketHttp::TCPSocket] Socket connection failed with error: " << error << std::endl;
-#endif
-                closesocket(sock);
-                sockets.erase(sockets.begin() + i);
-                addresses.erase(addresses.begin() + i);
-                --i;
+                struct sockaddr_in6* ipv6 = (struct sockaddr_in6*)addresses[i]->ai_addr;
+                addr = &(ipv6->sin6_addr);
               }
+                
+              inet_ntop(addresses[i]->ai_family, addr, addr_str, INET6_ADDRSTRLEN);
+              pockethttp_log("[TCPSocket] Successfully connected to " << addr_str << ":" << port);
+
+              #ifdef _WIN32
+                unsigned long mode = 0;
+                ioctlsocket(sock, FIONBIO, &mode);
+              #else
+                int flags = fcntl(sock, F_GETFL, 0);
+                fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+              #endif
+                        
+              for (size_t j = 0; j < sockets.size(); ++j) {
+                if (j != i) closesocket(sockets[j]);
+              }
+                        
+              this->socket_fd_ = sock;
+              this->connected_ = true;
+              this->last_used_timestamp_ = pockethttp::Timestamp::getCurrentTimestamp();
+                        
+              freeaddrinfo(result);
+              return true;
+
+            } else {
+              pockethttp_error("[TCPSocket] Socket connection failed with error: " << error);
+              closesocket(sock);
+              sockets.erase(sockets.begin() + i);
+              addresses.erase(addresses.begin() + i);
+              --i;
             }
           }
         }
-        
-        for (SOCKET sock : sockets) {
-          closesocket(sock);
-        }
       }
-    
-#ifdef POCKET_HTTP_LOGS
-    std::cerr << "[PocketHttp::TCPSocket] Failed to connect to " << host << ":" << port << std::endl;
-#endif
+        
+      for (SOCKET sock : sockets) {
+        closesocket(sock);
+      }
+    }
+
+    pockethttp_error("[TCPSocket] Failed to connect to " << host << ":" << port);
     freeaddrinfo(result);
     return false;
   }
 
   void TCPSocket::disconnect() {
-    if (socket_fd_ != INVALID_SOCKET) {
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] Disconnecting socket" << std::endl;
-#endif
-      closesocket(socket_fd_);
-      socket_fd_ = INVALID_SOCKET;
-      connected_ = false;
+    if (this->socket_fd_ != INVALID_SOCKET) {
+      pockethttp_log("[TCPSocket] Disconnecting socket");
+      closesocket(this->socket_fd_);
+      this->socket_fd_ = INVALID_SOCKET;
+      this->connected_ = false;
     }
   }
 
-  bool TCPSocket::send(const std::vector<uint8_t> &data) {
-    if (!connected_ || socket_fd_ == INVALID_SOCKET) {
-#ifdef POCKET_HTTP_LOGS
-      std::cerr << "[PocketHttp::TCPSocket] Cannot send data: socket not connected" << std::endl;
-#endif
-      return false;
+
+  size_t TCPSocket::send(const unsigned char* buffer, const size_t size) {
+    if (!this->connected_ || this->socket_fd_ == INVALID_SOCKET) {
+      pockethttp_error("[TCPSocket] Cannot send data: socket not connected");
+      return pockethttp::Buffer::error;
     }
-    
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Sending " << data.size() << " bytes" << std::endl;
-#endif
-    
-    const char* buffer = reinterpret_cast<const char*>(data.data());
+
+    pockethttp_log("[TCPSocket] Sending " << size << " bytes");
     size_t total_sent = 0;
-    size_t data_size = data.size();
     
-    while (total_sent < data_size) {
-      int bytes_sent = ::send(socket_fd_, buffer + total_sent, data_size - total_sent, 0);  
-      if (bytes_sent == SOCKET_ERROR) {
+    while (total_sent < size) {
+      ssize_t bytes_sent = ::send(this->socket_fd_, buffer + total_sent, size - total_sent, 0);
+      if (bytes_sent == SOCKET_ERROR || bytes_sent < 0) {
         #ifdef _WIN32
-          std::cerr << "Send failed: " << WSAGetLastError() << std::endl;
+          pockethttp_error("[TCPSocket] Send failed with error: " << WSAGetLastError());
         #else
-          std::cerr << "Send failed: " << strerror(errno) << std::endl;
+          pockethttp_error("[TCPSocket] Send failed with error: " << strerror(errno));
         #endif
-#ifdef POCKET_HTTP_LOGS
-        std::cerr << "[PocketHttp::TCPSocket] Send operation failed" << std::endl;
-#endif
-        return false;
+        return pockethttp::Buffer::error;
       }
         
       total_sent += bytes_sent;
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] Sent " << bytes_sent << " bytes (" << total_sent << "/" << data_size << ")" << std::endl;
-#endif
+      pockethttp_log("[TCPSocket] Sent " << bytes_sent << " bytes. (" << total_sent << "/" << size << ")");
     }
     
     last_used_timestamp_ = pockethttp::Timestamp::getCurrentTimestamp();
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Data sent successfully" << std::endl;
-#endif
-    return true;
+    pockethttp_log("[TCPSocket] Data sent successfully");
+    return total_sent;
   }
 
-std::vector<uint8_t> TCPSocket::receive() {
-    constexpr size_t CHUNK_SIZE = 16384;
-    if (!connected_ || socket_fd_ == INVALID_SOCKET) {
-#ifdef POCKET_HTTP_LOGS
-      std::cerr << "[PocketHttp::TCPSocket] Cannot receive data: socket not connected" << std::endl;
-#endif
-      return {};
+  size_t TCPSocket::receive(unsigned char* buffer, size_t size, const int64_t& timeout) {
+    if (!this->connected_ || this->socket_fd_ == INVALID_SOCKET) {
+      pockethttp_error("[TCPSocket] Cannot receive data: socket not connected");
+      return pockethttp::Buffer::error;
     }
 
     fd_set read_fds;
     FD_ZERO(&read_fds);
-    FD_SET(socket_fd_, &read_fds);
+    FD_SET(this->socket_fd_, &read_fds);
 
     // Espera un corto periodo de tiempo para ver si hay datos.
     // Esto evita el bloqueo indefinido.
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 100000; // 100ms
+    struct timeval timeout_;
+    timeout_.tv_sec = 0; // 0s
+    timeout_.tv_usec = timeout * 1000; // Xms (default 30000ms [30s])
 
-    int select_result = select(socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout);
+    int select_result = select(this->socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout_);
+    pockethttp_log("[TCPSocket] Select result: " << select_result);
 
     if (select_result == SOCKET_ERROR) {
       #ifdef _WIN32
-        std::cerr << "select() failed: " << WSAGetLastError() << std::endl;
+        pockethttp_error("[TCPSocket] Select failed with error: " << WSAGetLastError());
       #else
-        std::cerr << "select() failed: " << strerror(errno) << std::endl;
+        pockethttp_error("[TCPSocket] Select failed with error: " << strerror(errno));
       #endif
-#ifdef POCKET_HTTP_LOGS
-      std::cerr << "[PocketHttp::TCPSocket] Select failed during receive operation" << std::endl;
-#endif
-      connected_ = false;
-      return {};
+
+      this->disconnect();
+      return pockethttp::Buffer::error;
     }
 
-    if (select_result == 0 || !FD_ISSET(socket_fd_, &read_fds)) {
+    if (select_result == 0 || !FD_ISSET(this->socket_fd_, &read_fds)) {
       // Timeout o no hay datos, devuelve un vector vacío.
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] No data available for reading (timeout or no data)" << std::endl;
-#endif
-      return {};
+      pockethttp_error("[TCPSocket] No data available for reading (timeout [" << timeout << "] or no data): (" << errno << ") " << strerror(errno));
+      this->disconnect();
+      return pockethttp::Buffer::error;
     }
 
-    char buffer[CHUNK_SIZE];
-    int bytes_received = ::recv(socket_fd_, buffer, sizeof(buffer), 0);
+    ssize_t bytes_received = ::recv(this->socket_fd_, buffer, size, 0);
+    pockethttp_log("[TCPSocket] Received " << bytes_received << " bytes");
 
     if (bytes_received == SOCKET_ERROR) {
       #ifdef _WIN32
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
-          std::cerr << "Receive failed: " << err << std::endl;
-#ifdef POCKET_HTTP_LOGS
-          std::cerr << "[PocketHttp::TCPSocket] Receive operation failed with error: " << err << std::endl;
-#endif
-          connected_ = false;
+          pockethttp_error("[TCPSocket] Receive failed with error: " << err);
+          this->disconnect();
         }
       #else
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-          std::cerr << "Receive failed: " << strerror(errno) << std::endl;
-#ifdef POCKET_HTTP_LOGS
-          std::cerr << "[PocketHttp::TCPSocket] Receive operation failed: " << strerror(errno) << std::endl;
-#endif
-          connected_ = false;
+          pockethttp_error("[TCPSocket] Receive failed with error: " << strerror(errno));
+          this->disconnect();
         }
       #endif
-      return {};
+      return pockethttp::Buffer::error;
     }
 
     if (bytes_received == 0) {
-      // El servidor cerró la conexión.
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] Server closed the connection" << std::endl;
-#endif
-      connected_ = false;
-      return {};
+      pockethttp_error("[TCPSocket] Server closed the connection: (" << errno << ") " << strerror(errno));
+      this->disconnect();
+      return pockethttp::Buffer::error;
     }
 
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Received " << bytes_received << " bytes" << std::endl;
-#endif
     last_used_timestamp_ = pockethttp::Timestamp::getCurrentTimestamp();
-    return std::vector<uint8_t>(buffer, buffer + bytes_received);
+    return bytes_received;
   }
 
+
   bool TCPSocket::isConnected() {
-    if (!connected_ || socket_fd_ == INVALID_SOCKET) {
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] Socket is not connected" << std::endl;
-#endif
+    if (!this->connected_ || this->socket_fd_ == INVALID_SOCKET) {
+      pockethttp_log("[TCPSocket] Socket is not connected");
       return false;
     }
     
@@ -447,37 +383,34 @@ std::vector<uint8_t> TCPSocket::receive() {
     struct timeval timeout;
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
-    
-    int result = select(socket_fd_ + 1, &read_fds, &write_fds, &error_fds, &timeout);
+
+    int result = select(this->socket_fd_ + 1, &read_fds, &write_fds, &error_fds, &timeout);
     if (result < 0) {
-#ifdef POCKET_HTTP_LOGS
-      std::cerr << "[PocketHttp::TCPSocket] Select failed in isConnected check" << std::endl;
-#endif
-      connected_ = false;
+      pockethttp_error("[TCPSocket] Select failed in isConnected check");
+      this->connected_ = false;
+      this->socket_fd_ = INVALID_SOCKET;
       return false;
     }
     
-    if (FD_ISSET(socket_fd_, &error_fds)) {
-#ifdef POCKET_HTTP_LOGS
-      std::cout << "[PocketHttp::TCPSocket] Socket error detected in isConnected check" << std::endl;
-#endif
-      connected_ = false;
+    if (FD_ISSET(this->socket_fd_, &error_fds)) {
+      pockethttp_error("[TCPSocket] Socket error detected in isConnected check");
+      this->connected_ = false;
+      this->socket_fd_ = INVALID_SOCKET;
       return false;
     }
-    
-    if (FD_ISSET(socket_fd_, &read_fds)) {
+
+    if (FD_ISSET(this->socket_fd_, &read_fds)) {
       char test_buffer[1];  
       #ifdef _WIN32
-        int peek_result = ::recv(socket_fd_, test_buffer, 1, MSG_PEEK);
+        int peek_result = ::recv(this->socket_fd_, test_buffer, 1, MSG_PEEK);
       #else
-        int peek_result = ::recv(socket_fd_, test_buffer, 1, MSG_PEEK | MSG_DONTWAIT);
+        int peek_result = ::recv(this->socket_fd_, test_buffer, 1, MSG_PEEK | MSG_DONTWAIT);
       #endif
         
       if (peek_result == 0) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::TCPSocket] Connection closed by peer" << std::endl;
-#endif
-        connected_ = false;
+        pockethttp_log("[TCPSocket] Connection closed by peer");
+        this->connected_ = false;
+        this->socket_fd_ = INVALID_SOCKET;
         return false;
       }
         
@@ -485,32 +418,55 @@ std::vector<uint8_t> TCPSocket::receive() {
         #ifdef _WIN32
           int error = WSAGetLastError();
           if (error != WSAEWOULDBLOCK && error != WSAENOTSOCK) {
-#ifdef POCKET_HTTP_LOGS
-            std::cerr << "[PocketHttp::TCPSocket] Peek operation failed with error: " << error << std::endl;
-#endif
-            connected_ = false;
+            pockethttp_error("[TCPSocket] Peek operation failed with error: " << error);
+            this->connected_ = false;
+            this->socket_fd_ = INVALID_SOCKET;
             return false;
           }
         #else
           if (errno != EAGAIN && errno != EWOULDBLOCK) {
-#ifdef POCKET_HTTP_LOGS
-            std::cerr << "[PocketHttp::TCPSocket] Peek operation failed: " << strerror(errno) << std::endl;
-#endif
-            connected_ = false;
+            pockethttp_error("[TCPSocket] Peek operation failed: " << strerror(errno));
+            this->connected_ = false;
+            this->socket_fd_ = INVALID_SOCKET;
             return false;
           }
         #endif
       }
     }
     
-#ifdef POCKET_HTTP_LOGS
-    std::cout << "[PocketHttp::TCPSocket] Socket connection is healthy" << std::endl;
-#endif
+    pockethttp_log("[TCPSocket] Socket connection is healthy");
     return true;
   }
 
+  size_t TCPSocket::getAvailableOutBytes() const {
+    if (!this->connected_ || this->socket_fd_ == INVALID_SOCKET) {
+      pockethttp_error("[TCPSocket] Cannot get available bytes: socket not connected");
+      return 0;
+    }
+
+    #ifdef _WIN32
+      DWORD dwBytes;
+      if (ioctlsocket(this->socket_fd_, FIONREAD, &dwBytes) != 0) {
+        pockethttp_error("[TCPSocket] ioctlsocket failed: " << WSAGetLastError());
+        return 0;
+      } else {
+        return static_cast<size_t>(dwBytes);
+      }
+    #else
+      int pending = 0;
+      if (ioctl(this->socket_fd_, FIONREAD, &pending) != 0) {
+        pockethttp_error("[TCPSocket] ioctl failed: " << strerror(errno));
+        return 0;
+      } else {
+        return static_cast<size_t>(pending);
+      }
+    #endif
+
+    return 0;
+  }
+
   int64_t TCPSocket::getTimestamp() const {
-    return last_used_timestamp_;
+    return this->last_used_timestamp_;
   }
 
 } // namespace pockethttp

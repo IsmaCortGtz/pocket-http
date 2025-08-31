@@ -6,12 +6,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux-x64:
-    runs-on: ubuntu-22.04
-        
+  build-linux:
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm64
+    runs-on: ${{ matrix.runner }}
+
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install Libraries
       run: |
@@ -21,49 +28,33 @@ jobs:
         g++ \
         pkg-config
 
+    - name: Make build script executable
+      run: chmod +x ./scripts/bz.py
+
     - name: Build
-      run: |
-        ./scripts/bz.py
-        chmod +x ./bin/pocket-http-linux_x64
-        
+      run: ./scripts/bz.py
+
+    - name: Make binary executable
+      run: chmod +x ./bin/pocket-http-linux_${{ matrix.arch }}
+
     - name: List bin directory contents
       run: ls -la ./bin/
       
-    - name: Run Binary
-      run: ./bin/pocket-http-linux_x64 GET "https://www.example.com"
-
-  build-linux-arm64:
-    runs-on: ubuntu-22.04-arm
-        
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-
-    - name: Install Libraries
+    - name: Verify binary exists
       run: |
-        sudo apt-get update
-        sudo apt-get install -y -f \
-        build-essential \
-        g++ \
-        pkg-config
-
-    - name: Build
-      run: |
-        ./scripts/bz.py
-        chmod +x ./bin/pocket-http-linux_arm64
-        
-    - name: List bin directory contents
-      run: ls -la ./bin/
+        if [ ! -f "./bin/pocket-http-linux_${{ matrix.arch }}" ]; then
+          echo "Binary not found!"
+          exit 1
+        fi
       
     - name: Run Binary
-      run: ./bin/pocket-http-linux_arm64 GET "https://www.example.com"
-
+      run: ./bin/pocket-http-linux_${{ matrix.arch }} GET "https://www.example.com"
 
   build-windows:
     runs-on: windows-2022
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build
       run: python ./scripts/bz.py
@@ -71,6 +62,14 @@ jobs:
       
     - name: List bin directory contents
       run: dir bin
+      shell: cmd
+      
+    - name: Verify binary exists
+      run: |
+        if not exist ".\bin\pocket-http-win_x64.exe" (
+          echo Binary not found!
+          exit /b 1
+        )
       shell: cmd
       
     - name: Run Binary
@@ -85,15 +84,31 @@ jobs:
     
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        # Ensure we have the necessary build tools
+        xcode-select --install || true
+
+    - name: Make build script executable
+      run: chmod +x ./scripts/bz.py
 
     - name: Build
-      run: |
-        ./scripts/bz.py --target_arch ${{ matrix.arch }}
-        chmod +x ./bin/pocket-http-mac_${{ matrix.arch }}
+      run: ./scripts/bz.py --target_arch ${{ matrix.arch }}
+
+    - name: Make binary executable
+      run: chmod +x ./bin/pocket-http-mac_${{ matrix.arch }}
         
     - name: List bin directory contents
       run: ls -la ./bin/
+      
+    - name: Verify binary exists
+      run: |
+        if [ ! -f "./bin/pocket-http-mac_${{ matrix.arch }}" ]; then
+          echo "Binary not found!"
+          exit 1
+        fi
         
     - name: Run Binary
       run: ./bin/pocket-http-mac_${{ matrix.arch }} GET "https://www.example.com"

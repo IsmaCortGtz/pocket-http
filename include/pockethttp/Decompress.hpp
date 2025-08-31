@@ -1,22 +1,50 @@
 #ifndef POCKET_HTTP_DECOMPRESS_HPP
 #define POCKET_HTTP_DECOMPRESS_HPP
 
-// Include all compression components
-#include "Decompress/Constants.hpp"
-#include "Decompress/MinizWrapper.hpp"
-#include "Decompress/StreamingDecompressor.hpp"
-#include "Decompress/StreamingDeflateDecompressor.hpp"
-#include "Decompress/StreamingGzipDecompressor.hpp"
-#include "Decompress/StreamingGzipParser.hpp"
+#include <miniz/miniz.h>
+#include <functional>
+
+#define POCKET_HTTP_DECOMPRESS_OUTPUT_CHUNK_SIZE 16384 // 16 kb
 
 namespace pockethttp {
-  namespace Decompress {
 
-    // Re-export main classes for backward compatibility
-    using GzipDecompressor = StreamingGzipDecompressor;
-    using DeflateDecompressor = StreamingDeflateDecompressor;
+  enum DecompressionAlgorithm {
+    NONE,
+    GZIP,
+    DEFLATE
+  };
 
-  } // namespace Decompress
+  enum DecompressionState {
+    INITIALIZED,
+    DECOMPRESSING,
+    FINISHED,
+    ERROR
+  };
+
+  class Decompressor {
+    private:
+      mz_stream stream;
+      DecompressionAlgorithm algorithm;
+
+      bool header_processed = false;
+      size_t get_gzip_header_length(const uint8_t* data, size_t size);
+      DecompressionState state;
+      
+    public:
+      Decompressor(DecompressionAlgorithm algorithm);
+      ~Decompressor();
+
+      DecompressionState init();
+      DecompressionState decompress(
+        const unsigned char* input, 
+        size_t input_size, 
+        std::function<void(unsigned char* buffer, size_t& size)> output_callback
+      );
+      
+      const uint8_t* getPendingInputPtr() const;
+      size_t getPendingInputSize() const;
+  };
+
 } // namespace pockethttp
 
 #endif // POCKET_HTTP_DECOMPRESS_HPP

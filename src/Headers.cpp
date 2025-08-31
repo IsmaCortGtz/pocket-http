@@ -1,4 +1,5 @@
-#include <pockethttp/Headers.hpp>
+#include "pockethttp/Buffer.hpp"
+#include "pockethttp/Headers.hpp"
 #include <algorithm>
 #include <map>
 #include <string>
@@ -32,6 +33,30 @@ namespace pockethttp {
     }
 
     return headers;
+  }
+
+  void Headers::load(const std::string& rawHeaders) {
+    std::vector<std::string> lines;
+    size_t start = 0;
+    size_t end = rawHeaders.find("\r\n");
+    while (end != std::string::npos) {
+      lines.push_back(rawHeaders.substr(start, end - start));
+      start = end + 2;
+      end = rawHeaders.find("\r\n", start);
+    }
+    lines.push_back(rawHeaders.substr(start));
+
+    for (const std::string& line : lines) {
+      size_t colonPos = line.find(':');
+      if (colonPos != std::string::npos) {
+        std::string key = line.substr(0, colonPos);
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        std::string value = line.substr(colonPos + 1);
+
+        value.erase(0, value.find_first_not_of(' '));
+        this->set(key, value);
+      }
+    }
   }
 
   void Headers::set(const std::string& key, const std::string& value) {

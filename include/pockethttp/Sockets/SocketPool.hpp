@@ -1,17 +1,15 @@
 #ifndef POCKET_HTTP_SOCKET_POOL_HPP
 #define POCKET_HTTP_SOCKET_POOL_HPP
 
-#include <pockethttp/Sockets/SocketWrapper.hpp>
-#include <pockethttp/Timestamp.hpp>
+#include "pockethttp/Logs.hpp"
+#include "pockethttp/Timestamp.hpp"
+#include "pockethttp/Sockets/SocketWrapper.hpp"
 #include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 #include <functional>
-#ifdef POCKET_HTTP_LOGS
-#include <iostream>
-#endif
 
 namespace pockethttp {
 
@@ -22,73 +20,47 @@ namespace pockethttp {
       static std::map<std::string, pockethttp::SocketCreator> protocols_;
       static std::map<std::string, std::vector<std::shared_ptr<pockethttp::SocketWrapper>>> pool_;
 
-      static std::string buildPoolKey(const std::string& protocol, const std::string& host, uint16_t port) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::SocketPool] buildPoolKey: " << protocol
-                  << ":" << host << ":" << port << "\n";
-#endif
+      static std::string buildPoolKey(const std::string& protocol, const std::string& host, const uint16_t port) {
+        pockethttp_log("[SocketPool] buildPoolKey" << protocol << ":" << port);
         return protocol + ":" + host + ":" + std::to_string(port);
       }
 
       static std::shared_ptr<pockethttp::SocketWrapper> findAvailableSocket(std::vector<std::shared_ptr<pockethttp::SocketWrapper>>& connections) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout
-            << "[PocketHttp::SocketPool] findAvailableSocket: searching for "
-               "available socket\n";
-#endif
+        pockethttp_log("[SocketPool] findAvailableSocket: searching for available socket");
+
         for (auto& conn : connections) {
           if (conn.use_count() == 1 && conn->isConnected()) {
-#ifdef POCKET_HTTP_LOGS
-            std::cout << "[PocketHttp::SocketPool] findAvailableSocket: found "
-                         "available socket\n";
-#endif
+            pockethttp_log("[SocketPool] findAvailableSocket: found available socket");
             return conn;
           }
         }
-#ifdef POCKET_HTTP_LOGS
-        std::cout
-            << "[PocketHttp::SocketPool] findAvailableSocket: no available "
-               "socket found\n";
-#endif
+
+        pockethttp_log("[SocketPool] findAvailableSocket: no available socket found");
         return nullptr;
       }
 
-      static std::shared_ptr<pockethttp::SocketWrapper> createNewSocket(const std::string& protocol, const std::string& host, uint16_t port) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::SocketPool] createNewSocket: creating new "
-                     "socket for "
-                  << host << ":" << port << "\n";
-#endif
+      static std::shared_ptr<pockethttp::SocketWrapper> createNewSocket(const std::string& protocol, const std::string& host, const uint16_t port) {
+        pockethttp_log("[SocketPool] createNewSocket: creating new socket for " << host << ":" << port);
+        
         auto socketCreator = protocols_.find(protocol);
         if (socketCreator == protocols_.end()) {
-#ifdef POCKET_HTTP_LOGS
-          std::cout << "[PocketHttp::SocketPool] createNewSocket: protocol not found: " << protocol << "\n";
-#endif
+          pockethttp_log("[SocketPool] createNewSocket: protocol not found: " << protocol);
           return nullptr;
         }
 
         auto newSocket = socketCreator->second();
         if (newSocket->connect(host, port)) {
-#ifdef POCKET_HTTP_LOGS
-          std::cout << "[PocketHttp::SocketPool] createNewSocket: connection "
-                       "successful\n";
-#endif
+          pockethttp_log("[SocketPool] createNewSocket: connection successful");
           return newSocket;
         } else {
-#ifdef POCKET_HTTP_LOGS
-          std::cout << "[PocketHttp::SocketPool] createNewSocket: connection "
-                       "failed\n";
-#endif
+          pockethttp_log("[SocketPool] createNewSocket: connection failed");
           return nullptr;
         }
       }
 
     public:
       static std::shared_ptr<pockethttp::SocketWrapper> getSocket(const std::string& protocol, const std::string& host, uint16_t port) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::SocketPool] getSocket: protocol=" << protocol
-                  << ", host=" << host << ", port=" << port << "\n";
-#endif
+        pockethttp_log("[SocketPool] getSocket: protocol=" << protocol << ", host=" << host << ", port=" << port);
         cleanupUnused();
 
         const std::string key = buildPoolKey(protocol, host, port);
@@ -96,81 +68,60 @@ namespace pockethttp {
 
         // Try to reuse existing connection
         if (auto socket = findAvailableSocket(connections)) {
-#ifdef POCKET_HTTP_LOGS
-          std::cout << "[PocketHttp::SocketPool] getSocket: reusing existing "
-                       "socket\n";
-#endif
+          pockethttp_log("[SocketPool] getSocket: reusing existing socket");
           return socket;
         }
 
         // Create new connection
         if (auto newSocket = createNewSocket(protocol, host, port)) {
           connections.push_back(newSocket);
-#ifdef POCKET_HTTP_LOGS
-          std::cout
-              << "[PocketHttp::SocketPool] getSocket: new socket created and "
-                 "added to pool\n";
-#endif
+          pockethttp_log("[SocketPool] getSocket: new socket created and added to pool");
           return newSocket;
         }
 
-#ifdef POCKET_HTTP_LOGS
-        std::cout
-            << "[PocketHttp::SocketPool] getSocket: failed to get socket\n";
-#endif
+        pockethttp_log("[SocketPool] getSocket: failed to get socket");
         return nullptr;
       }
 
       static void registerProtocol(const std::string& protocol, pockethttp::SocketCreator creator) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::SocketPool] registerProtocol: protocol=" << protocol << "\n";
-#endif
+        pockethttp_log("[SocketPool] registerProtocol: protocol=" << protocol);
         protocols_[protocol] = creator;
       }
 
       static void cleanupUnused(int64_t timeout = 30000) {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::SocketPool] cleanupUnused: cleaning up unused connections" << std::endl;
-#endif
-
-        const int64_t currentTime =
-            pockethttp::Timestamp::getCurrentTimestamp();
+        pockethttp_log("[SocketPool] cleanupUnused: cleaning up unused connections");
+        const int64_t currentTime = pockethttp::Timestamp::getCurrentTimestamp();
 
         for (auto& [key, connections] : pool_) {
           connections.erase(
-              std::remove_if(connections.begin(), connections.end(),
-                  [timeout, currentTime](
-                      std::shared_ptr<pockethttp::SocketWrapper>& conn) {
-                    const int64_t connectionAge =
-                        currentTime - conn->getTimestamp();
-                    const bool shouldRemove =
-                        (conn.use_count() == 1 && connectionAge > timeout) ||
-                        !conn->isConnected();
+            std::remove_if(connections.begin(), connections.end(),
+              [timeout, currentTime] (std::shared_ptr<pockethttp::SocketWrapper>& conn) {
+                const int64_t connectionAge = currentTime - conn->getTimestamp();
+                const bool shouldRemove =
+                  (conn.use_count() == 1 && connectionAge > timeout) ||
+                  !conn->isConnected();
 
-                    if (shouldRemove) {
-#ifdef POCKET_HTTP_LOGS
-                      std::cout << "[PocketHttp::SocketPool] cleanupUnused: "
-                                   "disconnecting socket\n";
-#endif
-                      conn->disconnect();
-                    }
-                    return shouldRemove;
-                  }),
-              connections.end());
+                if (shouldRemove) {
+                  pockethttp_log("[SocketPool] cleanupUnused: disconnecting socket");
+                  conn->disconnect();
+                }
+                
+                return shouldRemove;
+              }),
+            connections.end()
+          );
         }
       }
 
       static void cleanupAll() {
-#ifdef POCKET_HTTP_LOGS
-        std::cout << "[PocketHttp::SocketPool] cleanupAll: disconnecting all "
-                     "sockets and clearing pool\n";
-#endif
-
+        pockethttp_log("[SocketPool] cleanupAll: disconnecting all sockets and clearing pool");
+        
         for (auto& [key, connections] : pool_) {
           for (auto& conn : connections) {
             conn->disconnect();
           }
         }
+        
         pool_.clear();
       }
 

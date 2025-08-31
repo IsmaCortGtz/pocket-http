@@ -10,6 +10,8 @@ namespace pockethttp {
   class Headers {
     public:
       static Headers parse(const std::string& rawHeaders);
+      
+      void load(const std::string& rawHeaders);
       std::string dump() const;
       std::vector<std::string> keys() const;
       std::string get(const std::string& key) const;

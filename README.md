@@ -1,6 +1,6 @@
 # pocket-http
 
-A lightweight, cross-platform HTTP/HTTPS client library for C++17+ in an ultra-compact package.
+A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-compact package.
 
 ## 🚀 Key Features
 
@@ -72,136 +72,11 @@ python scripts/bz.py
 
 ## 📚 Usage
 
-### Basic Usage
+You can see simple examples in [`examples/`](./examples/):
 
-```cpp
-#include <pockethttp/pockethttp.hpp>
-#include <iostream>
-
-int main() {
-    pockethttp::Http client;
-    
-    // Create a request
-    pockethttp::Request request;
-    request.method = "GET";
-    request.url = "https://api.example.com/data";
-    request.headers.set("User-Agent", "PocketHTTP/1.0");
-    
-    // Make the request with streaming callback
-    pockethttp::Response response;
-    std::string body;
-    
-    client.request(request, [&](const pockethttp::Response& res, const std::vector<uint8_t>& chunk) {
-        if (body.empty()) {
-            response = res; // Capture headers on first chunk
-            
-            // Pre-allocate based on Content-Length if available
-            std::string contentLength = res.headers.get("Content-Length");
-            if (!contentLength.empty()) {
-                body.reserve(std::stoul(contentLength));
-            }
-        }
-        
-        // Append chunk data
-        body.append(reinterpret_cast<const char*>(chunk.data()), chunk.size());
-        return true; // Continue receiving
-    });
-    
-    std::cout << "Status: " << response.status << std::endl;
-    std::cout << "Body: " << body << std::endl;
-    
-    return 0;
-}
-```
-
-### POST with JSON Body
-
-```cpp
-pockethttp::Http client;
-pockethttp::Request request;
-
-request.method = "POST";
-request.url = "https://api.example.com/users";
-request.headers.set("Content-Type", "application/json");
-request.headers.set("Accept", "application/json");
-
-// Set JSON body
-std::string jsonData = R"({"name": "John", "email": "john@example.com"})";
-request.body.assign(jsonData.begin(), jsonData.end());
-
-client.request(request, [](const pockethttp::Response& res, const std::vector<uint8_t>& chunk) {
-    // Handle response...
-    return true;
-});
-```
-
-### Custom Headers and Timeout
-
-```cpp
-pockethttp::Http client(60000); // 60 second timeout
-
-pockethttp::Request request;
-request.method = "GET";
-request.url = "https://api.example.com/slow-endpoint";
-request.headers.set("Authorization", "Bearer your-token");
-request.headers.set("Accept", "application/json");
-request.headers.set("Accept-Encoding", "gzip, deflate"); // Automatic decompression
-
-client.request(request, callback);
-```
+- [basic_request.cpp](./examples/basic_request.cpp)
 
 ## 📋 API Reference
-
-### `pockethttp::Http`
-
-#### Constructor
-
-```cpp
-Http(int64_t timeout = 30000); // timeout in milliseconds
-```
-
-#### Methods
-
-```cpp
-void request(const Request& req, 
-            std::function<bool(const Response&, const std::vector<uint8_t>&)> callback);
-```
-
-### `pockethttp::Request`
-
-```cpp
-struct Request {
-    std::string version = "HTTP/1.1"; // HTTP version
-    std::string method;               // HTTP method (GET, POST, etc.)
-    std::string url;                  // Full URL including protocol
-    Headers headers;                  // HTTP headers
-    std::vector<uint8_t> body;       // Request body
-};
-```
-
-### `pockethttp::Response`
-
-```cpp
-struct Response {
-    std::string version;    // HTTP version from server
-    uint16_t status;        // HTTP status code
-    std::string statusText; // HTTP status text
-    Headers headers;        // Response headers
-    std::vector<uint8_t> body; // Response body (for reference)
-};
-```
-
-### `pockethttp::Headers`
-
-```cpp
-class Headers {
-public:
-    void set(const std::string& name, const std::string& value);
-    std::string get(const std::string& name) const;
-    bool has(const std::string& name) const;
-    std::string dump() const; // Get all headers as string
-};
-```
 
 ## 🔧 Configuration
 

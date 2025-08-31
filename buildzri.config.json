@@ -33,8 +33,8 @@
     },
     "definitions": {
         "*": [
-            "POCKET_HTTP_LOGS",
-            "POCKET_HTTP_USE_BEARSSL"
+            "USE_POCKET_HTTP_LOG",
+            "USE_POCKET_HTTP_ERR"
         ],
         "windows": [
             "_WEBSOCKETPP_CPP11_STL_",
