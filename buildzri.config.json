@@ -13,7 +13,7 @@
     },
     "source": {
         "*": [
-            "examples/download.cpp",
+            "examples/basic_request.cpp",
             "include/miniz/miniz.c",
             "src/bearssl/**/*.c",
             "src/**/*.cpp"

@@ -14,6 +14,7 @@
     #include <ws2tcpip.h>
     #pragma comment(lib, "ws2_32.lib")
     typedef int socklen_t;
+    typedef SSIZE_T ssize_t;
 #else
     #include <sys/socket.h>
     #include <sys/ioctl.h>
@@ -76,7 +77,7 @@ namespace pockethttp {
     size_t total_sent = 0;
     
     while (total_sent < size) {
-      ssize_t bytes_sent = ::send(this->socket_fd_, buffer + total_sent, size - total_sent, 0);
+      ssize_t bytes_sent = ::send(this->socket_fd_, (const char *)(buffer + total_sent), size - total_sent, 0);
       if (bytes_sent == SOCKET_ERROR || bytes_sent < 0) {
         #ifdef _WIN32
           pockethttp_error("[TCPSocket] Send failed with error: " << WSAGetLastError());
@@ -132,7 +133,7 @@ namespace pockethttp {
       return pockethttp::Buffer::error;
     }
 
-    ssize_t bytes_received = ::recv(this->socket_fd_, buffer, size, 0);
+    ssize_t bytes_received = ::recv(this->socket_fd_, (char *)buffer, size, 0);
     pockethttp_log("[TCPSocket] Received " << bytes_received << " bytes");
 
     if (bytes_received == SOCKET_ERROR) {

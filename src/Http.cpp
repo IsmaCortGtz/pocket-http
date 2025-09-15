@@ -1,3 +1,12 @@
+#define NOMINMAX
+#include <algorithm>
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+
 #include "pockethttp/Logs.hpp"
 #include "pockethttp/Random.hpp"
 #include "pockethttp/Sockets/SocketPool.hpp"
@@ -642,7 +651,7 @@ namespace pockethttp {
       // Initialize decompressor
       decompressorPtr = std::make_shared<pockethttp::Decompressor>(algorithm);
       pockethttp::DecompressionState state = decompressorPtr->init();
-      if (state == pockethttp::DecompressionState::ERROR) {
+      if (state == pockethttp::DecompressionState::DECOMPRESS_ERROR) {
         socket->disconnect();
         return false;
       }
@@ -655,7 +664,7 @@ namespace pockethttp {
         state = decompressorPtr->decompress(buffer, size, response.body_callback);
 
         // size keeps the original value
-        if (state == pockethttp::DecompressionState::ERROR) return;
+        if (state == pockethttp::DecompressionState::DECOMPRESS_ERROR) return;
 
         if (state == pockethttp::DecompressionState::DECOMPRESSING) {
           size = decompressorPtr->getPendingInputSize();

@@ -1,6 +1,8 @@
 #ifndef POCKET_HTTP_DECOMPRESS_HPP
 #define POCKET_HTTP_DECOMPRESS_HPP
 
+#include <cstddef>
+#include <cstdint>
 #include <miniz/miniz.h>
 #include <functional>
 
@@ -18,7 +20,7 @@ namespace pockethttp {
     INITIALIZED,
     DECOMPRESSING,
     FINISHED,
-    ERROR
+    DECOMPRESS_ERROR
   };
 
   class Decompressor {

@@ -3,3 +3,11 @@ bin/
 *.pem
 *.der
 *.crt
+*.obj
+*.obj.*
+*.exe
+*.exe.*
+*.dll
+*.dll.*
+*.lib
+*.lib.*

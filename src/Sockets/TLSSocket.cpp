@@ -19,6 +19,7 @@
   #include <ws2tcpip.h>
   #pragma comment(lib, "ws2_32.lib")
   typedef int socklen_t;
+  typedef SSIZE_T ssize_t;
 #else
   #include <arpa/inet.h>
   #include <errno.h>

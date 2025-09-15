@@ -17,8 +17,8 @@ namespace pockethttp {
     }
 
     std::string getFormatedTimestamp() {
-      auto now = std::chrono::high_resolution_clock::now();
-      std::time_t now_c = std::chrono::high_resolution_clock::to_time_t(now);
+      auto now = std::chrono::system_clock::now();
+      std::time_t now_c = std::chrono::system_clock::to_time_t(now);
       std::tm *parts = std::localtime(&now_c);
       std::ostringstream oss;
 

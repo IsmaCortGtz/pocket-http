@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <functional>
+#include <cstddef>
+#include <cstdint>
 
 namespace pockethttp {
 
@@ -24,14 +26,14 @@ namespace pockethttp {
       int ret = mz_inflateInit2(&this->stream, window_bits);
       if (ret != MZ_OK) {
         pockethttp_error("[Decompressor] Failed to initialize decompressor: " << ret);
-        return DecompressionState::ERROR;
+        return DecompressionState::DECOMPRESS_ERROR;
       }
 
       pockethttp_log("[Decompressor] Decompressor initialized successfully: " << ret);
 
       this->state = DecompressionState::INITIALIZED;
     } else {
-      this->state = DecompressionState::ERROR;
+      this->state = DecompressionState::DECOMPRESS_ERROR;
     }
 
     return this->state;
@@ -87,7 +89,7 @@ namespace pockethttp {
   ) {
     pockethttp_log("[Decompressor] Decompress called with " << input_size << " bytes of input data.");
     if (input == nullptr || input_size == 0) {
-      this->state = DecompressionState::ERROR;
+      this->state = DecompressionState::DECOMPRESS_ERROR;
       return this->state;
     }
 
@@ -138,7 +140,7 @@ namespace pockethttp {
         default:
           pockethttp_error("[Decompressor] Decompression error: " << status);
           done = true;
-          this->state = DecompressionState::ERROR;
+          this->state = DecompressionState::DECOMPRESS_ERROR;
           break;
       }
     }
