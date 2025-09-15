@@ -35,26 +35,26 @@ jobs:
       run: ./scripts/bz.py --verbose
 
     - name: Make binary executable
-      run: chmod +x ./bin/pocket-http-linux_${{ matrix.arch }}
+      run: chmod +x ./bin/pocket-http_linux_${{ matrix.arch }}
 
     - name: List bin directory contents
       run: ls -la ./bin/
       
     - name: Verify binary exists
       run: |
-        if [ ! -f "./bin/pocket-http-linux_${{ matrix.arch }}" ]; then
+        if [ ! -f "./bin/pocket-http_linux_${{ matrix.arch }}" ]; then
           echo "Binary not found!"
           exit 1
         fi
       
     - name: Run Binary
-      run: ./bin/pocket-http-linux_${{ matrix.arch }} GET "https://www.example.com"
+      run: ./bin/pocket-http_linux_${{ matrix.arch }} GET "https://www.example.com"
 
   build-windows:
     runs-on: windows-2022
     strategy:
       matrix:
-        arch: [x64, arm64]
+        arch: [x64, x86]
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -69,14 +69,14 @@ jobs:
       
     - name: Verify binary exists
       run: |
-        if not exist ".\bin\pocket-http-win_${{ matrix.arch }}.exe" (
+        if not exist ".\bin\pocket-http_win_${{ matrix.arch }}.exe" (
           echo Binary not found!
           exit /b 1
         )
       shell: cmd
       
     - name: Run Binary
-      run: .\bin\pocket-http-win_${{ matrix.arch }}.exe GET "https://www.example.com"
+      run: .\bin\pocket-http_win_${{ matrix.arch }}.exe GET "https://www.example.com"
       shell: cmd
 
   build-darwin:
@@ -101,17 +101,17 @@ jobs:
       run: ./scripts/bz.py --target_arch ${{ matrix.arch }}  --verbose
 
     - name: Make binary executable
-      run: chmod +x ./bin/pocket-http-mac_${{ matrix.arch }}
+      run: chmod +x ./bin/pocket-http_mac_${{ matrix.arch }}
         
     - name: List bin directory contents
       run: ls -la ./bin/
       
     - name: Verify binary exists
       run: |
-        if [ ! -f "./bin/pocket-http-mac_${{ matrix.arch }}" ]; then
+        if [ ! -f "./bin/pocket-http_mac_${{ matrix.arch }}" ]; then
           echo "Binary not found!"
           exit 1
         fi
         
     - name: Run Binary
-      run: ./bin/pocket-http-mac_${{ matrix.arch }} GET "https://www.example.com"
+      run: ./bin/pocket-http_mac_${{ matrix.arch }} GET "https://www.example.com"
