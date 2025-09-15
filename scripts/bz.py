@@ -11,7 +11,7 @@ import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--verbose', action='store_true')
-parser.add_argument('--target_arch', choices=['x64', 'arm64', 'armhf'])
+parser.add_argument('--target_arch', choices=['x64', 'arm64', 'armhf', 'x86'])
 args = parser.parse_args()
 
 C = {}
@@ -28,6 +28,9 @@ def get_arch(short_names = True):
 
     if short_names and (arch in ['x86_64', 'amd64']):
         arch = 'x64'
+
+    if short_names and (arch in ['i386', 'i486', 'i586', 'i686', 'i786']):
+        arch = 'x86'
 
     if short_names and (arch in ['aarch64']):
         arch = 'arm64'
@@ -217,6 +220,10 @@ def build_compiler_cmd():
             cmd += '-arch arm64 '
         else:
             print('ERR: Unsupported target architecture for macOS cross-compile: %s' % target_arch)
+            sys.exit(1)
+    elif BZ_ISWIN:
+        if target_arch not in ['x86', 'x64', 'arm64']:
+            print('ERR: Unsupported target architecture for Windows cross-compile: %s' % target_arch)
             sys.exit(1)
     else:
         if target_arch != arch:

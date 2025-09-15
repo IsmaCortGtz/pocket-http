@@ -32,7 +32,7 @@ jobs:
       run: chmod +x ./scripts/bz.py
 
     - name: Build
-      run: ./scripts/bz.py
+      run: ./scripts/bz.py --verbose
 
     - name: Make binary executable
       run: chmod +x ./bin/pocket-http-linux_${{ matrix.arch }}
@@ -52,12 +52,15 @@ jobs:
 
   build-windows:
     runs-on: windows-2022
+    strategy:
+      matrix:
+        arch: [x64, arm64]
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Build
-      run: python ./scripts/bz.py
+      run: python ./scripts/bz.py --target_arch ${{ matrix.arch }} --verbose
       shell: cmd
       
     - name: List bin directory contents
@@ -66,14 +69,14 @@ jobs:
       
     - name: Verify binary exists
       run: |
-        if not exist ".\bin\pocket-http-win_x64.exe" (
+        if not exist ".\bin\pocket-http-win_${{ matrix.arch }}.exe" (
           echo Binary not found!
           exit /b 1
         )
       shell: cmd
       
     - name: Run Binary
-      run: .\bin\pocket-http-win_x64.exe GET "https://www.example.com"
+      run: .\bin\pocket-http-win_${{ matrix.arch }}.exe GET "https://www.example.com"
       shell: cmd
 
   build-darwin:
@@ -95,7 +98,7 @@ jobs:
       run: chmod +x ./scripts/bz.py
 
     - name: Build
-      run: ./scripts/bz.py --target_arch ${{ matrix.arch }}
+      run: ./scripts/bz.py --target_arch ${{ matrix.arch }}  --verbose
 
     - name: Make binary executable
       run: chmod +x ./bin/pocket-http-mac_${{ matrix.arch }}
