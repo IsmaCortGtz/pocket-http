@@ -38,7 +38,7 @@ namespace pockethttp {
       DecompressionState decompress(
         const unsigned char* input, 
         size_t input_size, 
-        std::function<void(unsigned char* buffer, size_t& size)> output_callback
+        std::function<void(const unsigned char* buffer, const size_t& size)> output_callback
       );
       
       const uint8_t* getPendingInputPtr() const;

@@ -2,23 +2,22 @@
 #include <iostream>
 #include <cstring>
 #include <functional>
+#include <fstream>
 
 int main (int argc, char* argv[]) {
   // Check arguments
   if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <url> <encoding (optional = 'identity')>" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <url>" << std::endl;
     return 1;
   }
-
-  // Set encoding
-  std::string encoding = "identity";
-  if (argc >= 3) encoding = argv[2];
-
+  
   // Create request
+  std::string jsonData = R"({"name": "John", "age": 30, "city": "New York"})";
   pockethttp::Request req;
-  req.method = "GET";
+  req.method = "PUT";
   req.url = argv[1];
-  req.headers.set("Accept-Encoding", encoding);
+  req.headers.set("Content-Type", "application/json");
+  req.body = jsonData;
 
   // Set response callback
   pockethttp::Response res;
@@ -39,9 +38,8 @@ int main (int argc, char* argv[]) {
     return 1;
   }
   
-  std::cout << std::endl << std::endl;
   std::cout <<  res.version << " " << res.status << " " << res.statusText << std::endl;
   std::cout << res.headers.dump() << std::endl;
-  std::cout << resBody << std::endl << std::endl;
+  std::cout << resBody << std::endl;
   return 0;
 }

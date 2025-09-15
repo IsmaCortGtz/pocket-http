@@ -2,24 +2,38 @@
 #include <iostream>
 #include <cstring>
 #include <functional>
+#include <fstream>
 
 int main (int argc, char* argv[]) {
   // Check arguments
   if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <url> <encoding (optional = 'identity')>" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <url>" << std::endl;
     return 1;
   }
 
-  // Set encoding
-  std::string encoding = "identity";
-  if (argc >= 3) encoding = argv[2];
-
+  std::cout << "Uploading file README.md to " << argv[1] << std::endl;
+  
   // Create request
+  std::ifstream inputFile("README.md");
   pockethttp::Request req;
-  req.method = "GET";
+  req.method = "POST";
   req.url = argv[1];
-  req.headers.set("Accept-Encoding", encoding);
+  req.headers.set("Content-Type", "text/plain");
+  
+  // No content length, chunked transfer encoding will be used
+  // req.headers.set("Content-Length", ...);
+  
+  req.body_callback = [&inputFile](unsigned char* data, size_t* read_data, const size_t max_size, const size_t total_read) {
+    if (inputFile.eof()) {
+      *read_data = 0;
+      return false;
+    }
+    inputFile.read(reinterpret_cast<char*>(data), max_size);
+    *read_data = inputFile.gcount();
+    return true;
+  };
 
+  
   // Set response callback
   pockethttp::Response res;
   std::string resBody = "";

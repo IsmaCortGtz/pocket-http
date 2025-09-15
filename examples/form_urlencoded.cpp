@@ -10,15 +10,12 @@ int main (int argc, char* argv[]) {
     return 1;
   }
 
-  // Set encoding
-  std::string encoding = "identity";
-  if (argc >= 3) encoding = argv[2];
-
   // Create request
   pockethttp::Request req;
-  req.method = "GET";
+  req.method = "POST";
   req.url = argv[1];
-  req.headers.set("Accept-Encoding", encoding);
+  req.headers.set("Content-Type", "application/x-www-form-urlencoded");
+  req.body = "name=John&last_name=Doe+Smith&age=30"; // The body must be an already URL-encoded string
 
   // Set response callback
   pockethttp::Response res;

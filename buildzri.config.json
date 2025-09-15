@@ -2,7 +2,7 @@
     "std": "c++17",
     "name": "pocket-http",
     "version": "1.0.0",
-    "output": "./bin/pocket-http-${BZ_OS}_${BZ_TARGET_ARCH}",
+    "output": "./bin/pocket-http_${BZ_OS}_${BZ_TARGET_ARCH}_v${BZ_VERSION}",
     "include": {
         "*": [
             ".",
@@ -13,10 +13,10 @@
     },
     "source": {
         "*": [
+            "examples/download.cpp",
             "include/miniz/miniz.c",
             "src/bearssl/**/*.c",
-            "src/**/*.cpp",
-            "main.cpp"
+            "src/**/*.cpp"
         ]
     },
     "options": {
@@ -34,14 +34,10 @@
     "definitions": {
         "*": [
             "USE_POCKET_HTTP_LOG",
-            "USE_POCKET_HTTP_ERR"
+            "USE_POCKET_HTTP_ERR",
+            "USE_POCKET_HTTP_BEARSSL"
         ],
         "windows": [
-            "_WEBSOCKETPP_CPP11_STL_",
-            "_HAS_STD_BYTE=0",
-            "TRAY_WINAPI=1",
-            "UNICODE",
-            "_UNICODE",
             "__m128i_u=__m128i",
             "__m256i_u=__m256i"
         ]

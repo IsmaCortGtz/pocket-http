@@ -38,41 +38,41 @@ namespace pockethttp {
   }
 
   size_t Decompressor::get_gzip_header_length(const uint8_t* data, size_t size) {
-    // La cabecera GZIP mínima tiene 10 bytes.
+    // The minimum length of a GZIP header is 10 bytes.
     if (size < 10) return 0;
 
-    // Verificar los "números mágicos" de GZIP (0x1f 0x8b)
+    // Check GZIP magic numbers (0x1f 0x8b)
     if (data[0] != 0x1f || data[1] != 0x8b) return 0;
 
-    // El método de compresión debe ser DEFLATE (8)
+    // The compression method must be DEFLATE (8)
     if (data[2] != 8) return 0;
 
     const uint8_t flags = data[3];
     size_t header_len = 10;
 
-    // FEXTRA: Campo extra
+    // FEXTRA: Extra field
     if (flags & 0x04) {
-      if (header_len + 2 > size) return 0; // Incompleto
+      if (header_len + 2 > size) return 0; // Incomplete
       uint16_t extra_len = data[header_len] | (data[header_len + 1] << 8);
       header_len += 2 + extra_len;
     }
 
-    // FNAME: Nombre de archivo (terminado en NUL)
+    // FNAME: File name (null-terminated)
     if (flags & 0x08) {
       while (header_len < size && data[header_len] != 0) {
         header_len++;
       }
-      if (header_len < size) header_len++; // Incluir el NUL
+      if (header_len < size) header_len++; // Include the NUL
     }
 
-    // FCOMMENT: Comentario (terminado en NUL)
+    // FCOMMENT: Comment (null-terminated)
     if (flags & 0x10) {
       while (header_len < size && data[header_len] != 0) {
           header_len++;
       }
-      if (header_len < size) header_len++; // Incluir el NUL
+      if (header_len < size) header_len++; // Include the NUL
     }
-    // FHCRC: CRC16 de la cabecera
+    // FHCRC: CRC16 of the header
     if (flags & 0x02) {
       header_len += 2;
     }
@@ -83,7 +83,7 @@ namespace pockethttp {
   DecompressionState Decompressor::decompress(
     const unsigned char* input, 
     size_t input_size, 
-    std::function<void(unsigned char* buffer, size_t& size)> output_callback
+    std::function<void(const unsigned char* buffer, const size_t& size)> output_callback
   ) {
     pockethttp_log("[Decompressor] Decompress called with " << input_size << " bytes of input data.");
     if (input == nullptr || input_size == 0) {
@@ -92,13 +92,13 @@ namespace pockethttp {
     }
 
     size_t header_length = this->algorithm == DecompressionAlgorithm::GZIP && !this->header_processed ? this->get_gzip_header_length(input, input_size) : 0;
+    if (header_length > 0) this->header_processed = true;
     pockethttp_log("[Decompressor] GZIP header length: " << header_length << "/" << input_size << " bytes.");
 
     size_t out_size = 0;
     this->stream.next_in = input + header_length;
     this->stream.avail_in = input_size - header_length;
     this->state = DecompressionState::DECOMPRESSING;
-    this->header_processed = true;
 
     pockethttp_log("[Decompressor] Decompressing " << this->stream.avail_in << " bytes of data.");
 

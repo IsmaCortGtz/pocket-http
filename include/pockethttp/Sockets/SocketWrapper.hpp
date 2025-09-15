@@ -2,14 +2,18 @@
 #define POCKET_HTTP_SOCKETWRAPPER_HPP
 
 #include <string>
-#include <vector>
 
 #ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #pragma comment(lib, "ws2_32.lib")
+  typedef int socklen_t;
 #else
-typedef int SOCKET;
+  #include <unistd.h>
+  typedef int SOCKET;
+  #define INVALID_SOCKET (-1)
+  #define SOCKET_ERROR (-1)
+  #define closesocket(s) close(s)
 #endif
 
 namespace pockethttp {
@@ -43,13 +47,14 @@ namespace pockethttp {
 
       // Utility methods
       virtual bool isConnected() = 0;
-      virtual size_t getAvailableOutBytes() const = 0;
       virtual int64_t getTimestamp() const = 0;
     
-      protected:
-        SOCKET socket_fd_;
-        int64_t last_used_timestamp_ = 0;
-        bool connected_;
+    protected:
+      SOCKET socket_fd_ = INVALID_SOCKET;
+      int64_t last_used_timestamp_ = 0;
+      bool connected_ = false;
+
+      bool openTCPSocket(const std::string& host, int port);
   };
 
 } // namespace pockethttp

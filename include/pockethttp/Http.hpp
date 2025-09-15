@@ -41,8 +41,7 @@ namespace pockethttp {
         pockethttp::Response& response, 
         std::shared_ptr<SocketWrapper> socket,
         std::function<void(unsigned char* buffer, size_t& size)> body_callback,
-        unsigned char* buffer, 
-        const size_t buffer_size,
+        unsigned char* buffer,
         size_t& prev_data_size
       );
 

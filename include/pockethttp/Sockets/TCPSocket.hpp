@@ -27,13 +27,7 @@ namespace pockethttp {
       size_t receive(unsigned char* buffer, size_t size, const int64_t& timeout) override;
 
       bool isConnected() override;
-      size_t getAvailableOutBytes() const override;
       int64_t getTimestamp() const override;
-
-    protected:
-      SOCKET socket_fd_;
-      bool connected_;
-      int64_t last_used_timestamp_;
   };
 
 } // namespace pockethttp

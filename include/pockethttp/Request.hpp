@@ -27,6 +27,21 @@ namespace pockethttp {
     size_t content_length = pockethttp::Buffer::error; /** Needed only when use_chunked_transfer_encoding is false */
   };
 
+  enum FormDataItemStateEnum {
+    FORMDATA_HEADER,
+    FORMDATA_DATA,
+    FORMDATA_ENDING_CRLF,
+    FORMDATA_LAST_BOUNDARY,
+  };
+
+  struct FormDataItemState {
+    FormDataItemStateEnum state = FORMDATA_HEADER;
+    size_t remaining = 0;
+    size_t total_sent = 0;
+    std::string header;
+    std::vector<FormDataItem>::iterator item;
+  };
+
   struct FormDataRequest {
     std::string method;
     std::string url;

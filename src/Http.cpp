@@ -1,14 +1,15 @@
 #include "pockethttp/Logs.hpp"
 #include "pockethttp/Random.hpp"
 #include "pockethttp/Sockets/SocketPool.hpp"
-#include "pockethttp/Sockets/TCPSocket.hpp"
 #include "pockethttp/Http.hpp"
 #include "pockethttp/Buffer.hpp"
 #include "pockethttp/Decompress.hpp"
 #include <cstring>
+#include <cctype>
 
+#define POCKET_HTTP_MAX_ATTEMPTS 10
 #define POCKET_HTTP_CHUNK_SIZE 16384 // 16kb
-#define BOUNDARY_PREFIX "------------------PHTTP-"
+#define BOUNDARY_PREFIX "------------------PHTTP"
 
 namespace pockethttp {
 
@@ -56,7 +57,7 @@ namespace pockethttp {
   bool Http::request(pockethttp::FormDataRequest& req, pockethttp::Response& res) {
     pockethttp::Remote remote = pockethttp::utils::parseUrl(req.url);
     std::string boundary = this->generateBoundary();
-    size_t total_length = boundary.size() + 4; // For the final boundary and CRLF
+    size_t total_length = 2 + boundary.size() + 4; // For the final boundary and CRLF
 
     req.headers.set("Content-Type", "multipart/form-data; boundary=" + boundary);
     if (req.headers.has("Content-Length")) {
@@ -78,14 +79,14 @@ namespace pockethttp {
         }
 
         // file
-        total_length += boundary.size() + 2 
+        total_length += 2 + boundary.size() + 2 
                       + 38 + item.name.size() + 13 + item.filename.size() + 3 // Content-Disposition: form-data; name="<name>"; filename="<filename>"\r\n
-                      + 14 + item.name.size() + 2                             // Content-Type: <content_type>\r\n
+                      + 14 + item.content_type.size() + 2                     // Content-Type: <content_type>\r\n
                       + 2                                                     // \r\n
                       + item.content_length + 2;                              // <data>\r\n
       } else {
         // field
-        total_length += boundary.size() + 2 
+        total_length += 2 + boundary.size() + 2 
                       + 38 + item.name.size() + 3 // Content-Disposition: form-data; name="<name>"\r\n
                       + 2                         // \r\n
                       + item.value.size() + 2;    // <data>\r\n
@@ -100,30 +101,134 @@ namespace pockethttp {
     }
 
     std::vector<FormDataItem>::iterator it = req.form_data.begin();
+    pockethttp::FormDataItemState form_data_state;
+    form_data_state.item = it;
 
-    RequestCallback body_callback = [&req, &useTransferChunked, &it](unsigned char* data, size_t* read_data, const size_t max_size, const size_t total_read) -> bool {
+    RequestCallback body_callback = [&req, &boundary, &useTransferChunked, &form_data_state](unsigned char* data, size_t* read_data, const size_t max_size, const size_t total_read) -> bool {
       
-      // Temporal
-      *read_data = 0;
-      return false;
-      
-      if (it == req.form_data.end()) {
-        // last boundary
-      }
-      
-      // Format form-data using chunks
-      if (it->value_callback != nullptr) {
-        // file
+      switch (form_data_state.state) {
+        case pockethttp::FormDataItemStateEnum::FORMDATA_HEADER: {
+          pockethttp_log("[Http] Sending form-data header for item: " << form_data_state.item->name);
+          // Create header if not created yet
+          if (form_data_state.header == "") {
+            form_data_state.header += "--" + boundary + "\r\n"
+              + "Content-Disposition: form-data; name=\"" + form_data_state.item->name + "\"";
+
+            if (form_data_state.item->value_callback != nullptr) { // file
+
+              form_data_state.header += "; filename=\"" + form_data_state.item->filename + "\"\r\n"
+                + "Content-Type: " + form_data_state.item->content_type + "\r\n\r\n";
+
+            } else if (!form_data_state.item->value.empty()) { // field
+              form_data_state.header += "\r\n\r\n";
+            } else {
+              pockethttp_error("[Http] FormDataItem must have either value or value_callback set");
+              *read_data = pockethttp::Buffer::error;
+              return false;
+            }
+
+            form_data_state.remaining = form_data_state.header.size();
+          }
         
-        it++;
-      } else if (!it->value.empty()) {
-        // field
-        
-        
-      } else {
-        *read_data = 0;
-        return false;
-      }
+          // Send header
+          size_t to_read = std::min(max_size, form_data_state.remaining);
+          std::memcpy(data, form_data_state.header.c_str() + (form_data_state.header.size() - form_data_state.remaining), to_read);
+          *read_data = to_read;
+
+          if (to_read == form_data_state.remaining) {
+            form_data_state.header = ""; // Clear header
+            form_data_state.remaining = 0;
+            form_data_state.total_sent = 0;
+            form_data_state.state = pockethttp::FormDataItemStateEnum::FORMDATA_DATA; // Move to data state
+          }
+
+          return true;
+        }
+
+        case pockethttp::FormDataItemStateEnum::FORMDATA_DATA: {
+          if (form_data_state.item->value_callback != nullptr) {
+            pockethttp_log("[Http] Sending form-data file data for item: " << form_data_state.item->name);
+            bool moreData = form_data_state.item->value_callback(
+              data, 
+              read_data, 
+              max_size, 
+              form_data_state.total_sent
+            );
+
+            form_data_state.total_sent += *read_data;
+
+            if (!moreData) {
+              form_data_state.state = pockethttp::FormDataItemStateEnum::FORMDATA_ENDING_CRLF;
+              form_data_state.remaining = 2; // For the ending CRLF
+            }
+
+            return true;
+
+          } else if (!form_data_state.item->value.empty()) { // field with value
+
+            if (form_data_state.remaining == 0) {
+              form_data_state.remaining = form_data_state.item->value.size();
+            }
+
+            size_t to_read = std::min(max_size, form_data_state.remaining);
+            pockethttp_log("[Http] Sending " << to_read << " bytes of form-data field data for item: " << form_data_state.item->name);
+
+            std::memcpy(data, form_data_state.item->value.c_str() + (form_data_state.item->value.size() - form_data_state.remaining), to_read);
+            
+            *read_data = to_read;
+            form_data_state.remaining -= to_read;
+
+            if (to_read == form_data_state.remaining || form_data_state.remaining == 0) {
+              form_data_state.remaining = 2; // For the ending CRLF
+              form_data_state.state = pockethttp::FormDataItemStateEnum::FORMDATA_ENDING_CRLF; // Move to ending CRLF state
+            }
+
+            return true;
+
+          } else {
+            pockethttp_error("[Http] FormDataItem must have either value or value_callback set");
+            *read_data = pockethttp::Buffer::error;
+            return false;
+          }
+        }
+
+        case pockethttp::FormDataItemStateEnum::FORMDATA_ENDING_CRLF: {
+          if (max_size < 2) {
+            pockethttp_error("[Http] Buffer too small to write ending CRLF");
+            *read_data = pockethttp::Buffer::error;
+            return false;
+          }
+
+          pockethttp_log("[Http] Sending form-data ending CRLF for item: " << form_data_state.item->name);
+          std::memcpy(data, "\r\n", 2);
+          *read_data = 2;
+
+          if (++form_data_state.item == req.form_data.end()) {
+            form_data_state.state = pockethttp::FormDataItemStateEnum::FORMDATA_LAST_BOUNDARY;
+            form_data_state.remaining = boundary.size() + 4; // For the final boundary and CRLF
+          } else {
+            form_data_state.state = pockethttp::FormDataItemStateEnum::FORMDATA_HEADER;
+            form_data_state.remaining = 0;
+          }
+
+          return true; // More data to read
+        }
+
+        case pockethttp::FormDataItemStateEnum::FORMDATA_LAST_BOUNDARY: {
+          pockethttp_log("[Http] Sending form-data last boundary");
+          std::memcpy(data, ("--" + boundary + "--\r\n").c_str(), 2 + boundary.size() + 4);
+          *read_data = 2 + boundary.size() + 4;
+          return false; // No more data to read
+        }
+
+        default: {
+          pockethttp_error("[Http] Unknown FormDataItemStateEnum state formatting form-data request body.");
+          *read_data = pockethttp::Buffer::error;
+          return false;
+        }
+      };
+
+      return true; // More data to read
     };
 
     return request(remote, req.method, req.headers, res, body_callback);
@@ -245,100 +350,174 @@ namespace pockethttp {
     std::shared_ptr<SocketWrapper> socket,
     std::function<void(unsigned char* buffer, size_t& size)> send_body_callback,
     unsigned char* buffer,
-    const size_t buffer_size,
-    size_t& prev_data_size
+    size_t& buffer_data_size
   ) {
-    pockethttp_log("[Http] Handling chunked transfer encoding. Buffer size: " << buffer_size);
+    pockethttp_log("[Http] Handling chunked transfer encoding");
     bool end_chunk = false;
-    bool current_header = true; // Is waiting for chunk header
+    unsigned short attempts = 0; 
+    size_t remaining_buffer_process = buffer_data_size; // The remmaining data in the buffer to format (remove chunk headers and CRLFs)
+    size_t prev_chunk_data_offset = 0;
 
-    size_t current_chunk_size = 0, prev_send_size = 0, to_send_size = 0;
-
+    ChunkedResponseState status;
+    
+    // Repeat format-pull until buffer is full or end of chunks
     do {
-      // Pull data from socket until CRLF is found
-      size_t end_line = pockethttp::Buffer::find(buffer, prev_data_size, (const unsigned char*)"\r\n", 2);
+
+      unsigned char* buf = buffer + prev_chunk_data_offset;
+      pockethttp_log("[Http] Starting to process " << remaining_buffer_process << " bytes in buffer. Status: " << status.status);
       
-      if (current_header) {
-        // Keep pulling data
-        if (end_line == pockethttp::Buffer::error) {
-          size_t n = socket->receive(buffer + prev_data_size, buffer_size - prev_data_size, this->timeout_);
-          if (n == pockethttp::Buffer::error) return false;
-          if (n == 0) continue;
-          pockethttp_log("[Http] Received " << n << " bytes from socket in chunk header.");
-          prev_data_size += n;
-        }
+      // Remove chunk headers and CRLFs from the buffer
+      while (remaining_buffer_process > 0) {
+        switch (status.status) {
+          case pockethttp::ChunkedStatus::CHUNKED_STATUS_HEX: {
+            if (isdigit(*buf) || isalpha(*buf)) {
+              pockethttp_log("[Http] Reading chunk size hex character: " << *buf);
+              status.hexbuffer[status.hexindex++] = *buf;
+              buf++;
+              remaining_buffer_process--;
+            
+            } else {
+              if (status.hexindex == 0) {
+                pockethttp_error("[Http] Invalid chunk size format");
+                return false;
+              }
 
-        // Handle chunk size
-        for (size_t i = 0; i < end_line; i++) {
-          unsigned char c = buffer[i];
-          unsigned val = 0;
+              status.hexbuffer[status.hexindex] = '\0';
+              status.content_length = strtol(status.hexbuffer, nullptr, 16);
+              status.remaining_content_length = status.content_length;
+              status.hexindex = 0;
 
-          if (c >= '0' && c <= '9') val = c - '0';
-          else if (c >= 'a' && c <= 'f') val = 10 + (c - 'a');
-          else if (c >= 'A' && c <= 'F') val = 10 + (c - 'A');
+              if (status.content_length == 0) {
+                status.status = pockethttp::ChunkedStatus::CHUNKED_STATUS_DONE;
+                remaining_buffer_process = 0; // Stop processing
+                break;
+                pockethttp_log("[Http] Reached last chunk (size 0)");
+              } else {
+                status.status = pockethttp::ChunkedStatus::CHUNKED_STATUS_LF;
+                pockethttp_log("[Http] New chunk of size: " << status.content_length);
+              }
 
-          current_chunk_size = (current_chunk_size << 4) | val;
-        }
+              // Move buffer pointer forward
+              buf++;
+              remaining_buffer_process--;
+            }
 
-        if (current_chunk_size == 0) return true; // End of chunks
+            break;
+          }
 
-        // Move any body data to the beginning of the buffer
-        pockethttp_log("[Http] Current chunk size: " << current_chunk_size << ".");
-        std::memmove(buffer, buffer + end_line + 2, prev_data_size - (end_line + 2));
-        prev_data_size -= (end_line + 2);
-        current_header = false;
-        continue;
+          case pockethttp::ChunkedStatus::CHUNKED_STATUS_LF: {
+            if (*buf == 0x0A) {
+              status.status = pockethttp::ChunkedStatus::CHUNKED_STATUS_DATA;
+              pockethttp_log("[Http] CRLF after chunk size found");
+              
+              // Move buffer data to release chunk size
+              std::memmove(
+                buffer + prev_chunk_data_offset,
+                ++buf,
+                --remaining_buffer_process
+              );
+
+              buffer_data_size = prev_chunk_data_offset + remaining_buffer_process;
+              buf = buffer + prev_chunk_data_offset;
+              break;
+            }
+
+            buf++;
+            remaining_buffer_process--;
+            break;
+          }
+
+          case pockethttp::ChunkedStatus::CHUNKED_STATUS_DATA: {
+            if (status.remaining_content_length <= remaining_buffer_process) {
+              // Move buffer data pointer to release chunk data + CRLF
+              buf += status.remaining_content_length;
+              prev_chunk_data_offset += status.remaining_content_length;
+              remaining_buffer_process -= status.remaining_content_length;
+
+              status.status = pockethttp::ChunkedStatus::CHUNKED_STATUS_POSTLF;
+              status.remaining_content_length = 0;
+              pockethttp_log("[Http] Chunk data of size " << status.remaining_content_length << " processed");
+
+            } else {
+              status.remaining_content_length -= remaining_buffer_process;
+              buf += remaining_buffer_process;
+              pockethttp_log("[Http] Partial chunk data of size " << remaining_buffer_process << " processed");
+
+              prev_chunk_data_offset += remaining_buffer_process;
+              remaining_buffer_process = 0;
+            }
+
+            break;
+          }
+
+          case pockethttp::ChunkedStatus::CHUNKED_STATUS_POSTLF: {
+            if (*buf == 0x0A) {
+              status.status = pockethttp::ChunkedStatus::CHUNKED_STATUS_HEX;
+              pockethttp_log("[Http] CRLF after chunk data found");
+            }
+
+            buf++;
+            remaining_buffer_process--;
+            break;
+          }
+
+          default: {
+            pockethttp_error("[Http] Unknown error in chunked response handling");
+            return false;
+          }
+        };
+      };
+
+      pockethttp_log("[Http] Buffer formatted, calling body callback with " << prev_chunk_data_offset << " bytes of data");
+      size_t before_send_available = prev_chunk_data_offset;
+      send_body_callback(buffer, prev_chunk_data_offset);
+      pockethttp_log("[Http] Body callback finished. Remaining " << prev_chunk_data_offset << "/" << before_send_available << " bytes of data");
+
+      if (prev_chunk_data_offset == 0 && status.status == pockethttp::ChunkedStatus::CHUNKED_STATUS_DONE) {
+        end_chunk = true;
+        pockethttp_log("[Http] All chunked data processed");
+        break;
       }
 
-      // Handle pull
-      if (prev_data_size <= 0) {
-        size_t n = socket->receive(buffer + prev_data_size, buffer_size - prev_data_size, this->timeout_);
-        if (n == pockethttp::Buffer::error) return false;
-        if (n == 0) continue;
-        pockethttp_log("[Http] Received " << n << " bytes of " << buffer_size << " from socket in chunk body. (Total: " << prev_data_size + n << ")");
-        prev_data_size += n;
+      // Move remaining data to the beginning of the buffer
+      std::memmove(
+        buffer,
+        buffer + (before_send_available - prev_chunk_data_offset),
+        prev_chunk_data_offset
+      );
+      buffer_data_size = prev_chunk_data_offset + remaining_buffer_process;
 
-        end_line = pockethttp::Buffer::find(buffer, prev_data_size, (const unsigned char*)"\r\n", 2);
-        pockethttp_log("[Http] Re-evaluated end line position: " << end_line << "/" << prev_data_size << (end_line == pockethttp::Buffer::error ? " (Not Found)" : ""));
-      }
-
-      if (buffer_size != POCKET_HTTP_CHUNK_SIZE || buffer_size < 10) {
-        pockethttp_log("[Http] Buffer size is not valid for chunked transfer.");
+      if (attempts > POCKET_HTTP_MAX_ATTEMPTS) {
+        pockethttp_error("[Http] Too many attempts processing chunked data");
         return false;
       }
 
-      // Handle body data
-
-      prev_send_size = prev_data_size;
-      to_send_size = prev_data_size;
-
-      if (end_line != pockethttp::Buffer::error) {
-        prev_send_size = end_line;
-        to_send_size = end_line;
-      }
-
-      pockethttp_log("[Http] Preparing to send " << to_send_size << " bytes of chunked body data. Previous data size: " << prev_data_size << ". Previous send size: " << prev_send_size << ". End line: " << end_line);
-      send_body_callback(buffer, to_send_size);
-
-      pockethttp_log("[Http] Remaining " << to_send_size << " bytes of chunked body data. Error? " << (to_send_size == pockethttp::Buffer::error) << " End line? " << (end_line == pockethttp::Buffer::error));
-
-      if (to_send_size <= 0 && end_line != pockethttp::Buffer::error) {
-        // Move any remaining data to the beginning of the buffer
-        std::memmove(buffer, buffer + end_line + 2, prev_data_size - (end_line + 2));
-        prev_data_size -= (end_line + 2);
-        current_chunk_size = 0;
-        current_header = true;
-        
+      if ((POCKET_HTTP_CHUNK_SIZE - buffer_data_size) == 0) {
+        pockethttp_log("[Http] Buffer full after processing chunked data");
+        attempts++;
+        break; // Buffer full
       } else {
-        // Move any remaining data to the beginning of the buffer
-        if (prev_data_size - (prev_send_size - to_send_size) > 0) std::memmove(buffer, buffer + to_send_size, prev_data_size - (prev_send_size - to_send_size));
-        prev_data_size -= (prev_send_size - to_send_size);
+        attempts = 0; // Reset attempts if there is space in the buffer
       }
 
-    } while(prev_data_size < POCKET_HTTP_CHUNK_SIZE && !end_chunk);
+      // If not all transfer data was received
+      if (status.status != pockethttp::ChunkedStatus::CHUNKED_STATUS_DONE) {
+        // Pull more data if needed
+        size_t pulled = socket->receive(
+          buffer + buffer_data_size, 
+          POCKET_HTTP_CHUNK_SIZE - buffer_data_size, 
+          this->timeout_
+        );
 
-    if (!end_chunk) return false;
-    return true;
+        pockethttp_log("[Http] Pulled " << pulled << " bytes from socket");
+        remaining_buffer_process += pulled;
+        buffer_data_size += pulled;
+      }
+
+    } while (!end_chunk);
+
+    pockethttp_log("[Http] Finished processing chunked data (" << buffer_data_size << "). End chunk (bool): " << end_chunk);
+    return end_chunk;
   }
 
   bool Http::request(
@@ -382,6 +561,12 @@ namespace pockethttp {
     while(true) {
       read_data = 0;
       bool status = body_callback(buffer, &read_data, POCKET_HTTP_CHUNK_SIZE, total_read);
+      if (!status && read_data == pockethttp::Buffer::error) {
+        pockethttp_error("[Http] Body callback error");
+        socket->disconnect();
+        return false;
+      }
+
       if (!status && read_data == 0) break;
       if (read_data == 0) continue;
 
@@ -438,43 +623,43 @@ namespace pockethttp {
 
     // Parse body
     pockethttp_log("[Http] Starting body parse");
-    std::function<void(unsigned char* buffer, size_t& size)> send_body_callback;
-
     std::string encoding = response.headers.get("Content-Encoding");
     std::shared_ptr<pockethttp::Decompressor> decompressorPtr = nullptr;
+    std::function<void(unsigned char* buffer, size_t& size)> send_body_callback;
+
     if (encoding == "gzip" || encoding == "deflate") {
       pockethttp_log("[Http] Parsing compressed body: " << encoding);
 
-      // Handle compress
-      pockethttp::DecompressionAlgorithm algo = pockethttp::DecompressionAlgorithm::NONE;
+      // Handle compression algorithm
+      pockethttp::DecompressionAlgorithm algorithm = pockethttp::DecompressionAlgorithm::NONE;
+      if (encoding == "gzip") {
+        algorithm = pockethttp::DecompressionAlgorithm::GZIP;
+      
+      } else if (encoding == "deflate") {
+        algorithm = pockethttp::DecompressionAlgorithm::DEFLATE;
+      }
 
-      if (encoding == "gzip") algo = pockethttp::DecompressionAlgorithm::GZIP;
-      else if (encoding == "deflate") algo = pockethttp::DecompressionAlgorithm::DEFLATE;
-
-      decompressorPtr = std::make_shared<pockethttp::Decompressor>(algo);
+      // Initialize decompressor
+      decompressorPtr = std::make_shared<pockethttp::Decompressor>(algorithm);
       pockethttp::DecompressionState state = decompressorPtr->init();
       if (state == pockethttp::DecompressionState::ERROR) {
         socket->disconnect();
         return false;
       }
 
+      // Define decompression callback
       send_body_callback = [decompressorPtr, &state, &response](unsigned char* buffer, size_t& size) {
         pockethttp_log("[Http] Decompressing body data (http-request lambda): " << size << " bytes.");
-        state = decompressorPtr->decompress(buffer, size, response.body_callback);
-        pockethttp_log("[Http] Decompression state: " << (state == pockethttp::DecompressionState::DECOMPRESSING ? "DECOMPRESSING" : state == pockethttp::DecompressionState::FINISHED ? "FINISHED" : state == pockethttp::DecompressionState::ERROR ? "ERROR" : "UNKNOWN"));
 
-        if (state == pockethttp::DecompressionState::ERROR) {
-          size = pockethttp::Buffer::error;
-          return;
-        }
+        // Handle decompression and send result to user's response callback
+        state = decompressorPtr->decompress(buffer, size, response.body_callback);
+
+        // size keeps the original value
+        if (state == pockethttp::DecompressionState::ERROR) return;
 
         if (state == pockethttp::DecompressionState::DECOMPRESSING) {
-          size_t pending = decompressorPtr->getPendingInputSize();
-          if (pending > 0) {
-            pockethttp_log("[Http] Decompressor has pending input size: " << pending);
-            size = pending;
-            return;
-          }
+          size = decompressorPtr->getPendingInputSize();
+          return;
         }
 
         size = 0;
@@ -482,7 +667,11 @@ namespace pockethttp {
 
     } else {
       pockethttp_log("[Http] Parsing uncompressed body");
-      send_body_callback = response.body_callback;
+
+      send_body_callback = [&response](unsigned char* buffer, size_t& size) {
+        response.body_callback((const unsigned char*)buffer, (const size_t&)size);
+        size = 0;
+      };
     }
 
     if (response.headers.get("Transfer-Encoding") != "chunked" && !response.headers.has("Content-Length")) {
@@ -491,50 +680,48 @@ namespace pockethttp {
 
     // Handle transfer-encoding: chunked
     if (response.headers.get("Transfer-Encoding") == "chunked") {
-      return this->handleChunked(response, socket, send_body_callback, buffer, POCKET_HTTP_CHUNK_SIZE, read_data);
+      return this->handleChunked(response, socket, send_body_callback, buffer, read_data);
     }
 
-    // If is HTTP/1.0 is valid to close connection after send all data.
-    bool isV10 = (response.version == "HTTP/1.0");
-    // If is HTTP/1.1 is valid to close connection if Connection: close is set.
-    bool isClose = (response.headers.get("Connection") == "close");
-
-
-    total_read = read_data;
-    size_t pulled = 0, prev_send = 0;
+    bool isHttp10 = (response.version == "HTTP/1.0");
+    bool isConnClose = (response.headers.get("Connection") == "close");
     bool hasContentLength = response.headers.has("Content-Length");
-    size_t content_length = hasContentLength ? std::stoi(response.headers.get("Content-Length")) : 0;
 
+    size_t content_length = hasContentLength ? std::stoi(response.headers.get("Content-Length")) : 0;
     pockethttp_log("[Http] Total body size: " << content_length << "; Read: " << read_data);
 
+    total_read = read_data;
+    size_t pulled = 0;
+    size_t prev_send = 0;
+
     do {
-      if ((hasContentLength && total_read < content_length) || !hasContentLength) {
+      if ((total_read < content_length) || !hasContentLength) {
         // Pull data
         pulled = socket->receive(buffer + read_data, POCKET_HTTP_CHUNK_SIZE - read_data, this->timeout_);
         if (pulled == pockethttp::Buffer::error) {
-          pockethttp_error("[Http] Failed to receive body data");
+          pockethttp_error("[Http] Failed to receive body data.");
           socket->disconnect();
-          return (isV10 || isClose) && !hasContentLength;
+          return (isHttp10 || isConnClose) && !hasContentLength;
         }
 
         read_data += pulled;
         total_read += pulled;
       }
 
-      prev_send = read_data; // Data in buffer before sending (user should update read_data with remaining data)
+      prev_send = read_data; // Data in buffer before sending (callback updates read_data with remaining data)
       send_body_callback(buffer, read_data);
       if (read_data == pockethttp::Buffer::error) {
-        pockethttp_error("[Http] Failed to handle response body (user's callback or decompressor)");
+        pockethttp_error("[Http] Failed to handle body's response callback.");
         socket->disconnect();
         return false;
       }
 
       if (read_data > 0) {
         // Move remaining data to the beginning of the buffer
-        std::memmove(buffer, buffer + read_data, prev_send - read_data);
+        std::memmove(buffer, buffer + (prev_send - read_data), read_data);
       }
 
-      if (total_read >= content_length && hasContentLength) break;
+      if (hasContentLength && total_read >= content_length) break;
 
     } while (true);
 

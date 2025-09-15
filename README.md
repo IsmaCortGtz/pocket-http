@@ -4,43 +4,43 @@ A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-co
 
 ## 🚀 Key Features
 
-- **Zero Dependencies**: Compiles with a single command without linking any external libraries
-- **Cross-Platform**: Works seamlessly on Linux, macOS, and Windows
-- **HTTP/HTTPS Support**: Built-in TLS support via embedded [`BearSSL`](https://bearssl.org/)
-- **Memory Efficient**: Chunked streaming keeps memory usage low and constant
-- **Automatic Compression**: Built-in Gzip and Deflate decompression via [`miniz`](https://github.com/richgel999/miniz)
-- **Smart Socket Pooling**: Automatic connection reuse with intelligent cleanup
-- **Production Ready**: Timeout handling, connection management, and error recovery
+- **Zero Dependencies**: Compiles with a single command without linking any external libraries.
+- **Cross-Platform**: Works seamlessly on Linux, macOS, and Windows.
+- **HTTP/HTTPS Support**: Built-in TLS support via embedded [`BearSSL`](https://bearssl.org/).
+- **Memory Efficient**: Chunked streaming keeps memory usage low and constant.
+- **Automatic Compression**: Built-in Gzip and Deflate decompression via [`miniz`](https://github.com/richgel999/miniz).
+- **Smart Socket Pooling**: Automatic connection reuse with intelligent cleanup.
+- **Production Ready**: Timeout handling, connection management, and error recovery.
 
 ## 📦 What's Included
 
 ### Core Components
 
-- **HTTP Client**: Full HTTP/1.1 implementation with chunked transfer encoding
-- **TLS Support**: Secure HTTPS connections via embedded [`BearSSL`](https://bearssl.org/)
-- **Socket Pool**: Automatic connection reuse with timestamp-based cleanup
-- **Decompression**: Automatic Gzip/Deflate handling via [`miniz`](https://github.com/richgel999/miniz)
-- **Headers Management**: Complete HTTP headers parsing and manipulation
+- **HTTP Client**: Full HTTP/1.1 implementation with chunked transfer encoding.
+- **TLS Support**: Secure HTTPS connections via embedded [`BearSSL`](https://bearssl.org/).
+- **Socket Pool**: Automatic connection reuse with timestamp-based cleanup.
+- **Decompression**: Automatic Gzip/Deflate handling via [`miniz`](https://github.com/richgel999/miniz).
+- **Headers Management**: Complete HTTP headers parsing and manipulation.
 
 ### Embedded Libraries
 
-- [**`BearSSL`**](https://bearssl.org/): Lightweight TLS implementation (no OpenSSL dependency)
-- [**`miniz`**](https://github.com/richgel999/miniz): High-performance compression library
+- [**`BearSSL`**](https://bearssl.org/): Lightweight TLS implementation (no OpenSSL dependency).
+- [**`miniz`**](https://github.com/richgel999/miniz): High-performance compression library.
 
 ## 🏗️ Architecture
 
 ### Memory Management
 
-- **Streaming Architecture**: Processes data in chunks (16KB)
-- **Constant Memory Usage**: Memory footprint remains stable regardless of response size
-- **Smart Buffering**: Automatic buffer sizing based on Content-Length and compression
+- **Streaming Architecture**: Processes data in chunks (`16KB`)
+- **Constant Memory Usage**: Memory footprint remains stable regardless of response size.
+- **Smart Buffering**: Automatic buffer sizing based on Content-Length and compression.
 
 ### Connection Management
 
-- **Socket Pool**: Reuses connections for improved performance
-- **Automatic Cleanup**: Removes expired connections based on configurable timeout
-- **Connection State**: Tracks last usage timestamp for each socket
-- **Graceful Handling**: Detects and recovers from server-side disconnections
+- **Socket Pool**: Reuses connections for improved performance.
+- **Automatic Cleanup**: Removes expired connections based on configurable timeout.
+- **Connection State**: Tracks last usage timestamp for each socket.
+- **Graceful Handling**: Detects and recovers from server-side disconnections.
 
 ## 🛠️ Building
 
@@ -50,7 +50,7 @@ First of all, you need to clone the repository.
 git clone https://github.com/IsmaCortGtz/pocket-http.git
 ```
 
-Then, if you want to use `HTTPS` with `BearSSL` you need to privide a `certs.hpp` file on `include/pockethttp/TLS/certs.hpp`. You can create it from the [`Mozilla CA Certificates`](https://curl.se/docs/caextract.html).
+Then, if you want to use `HTTPS` with `BearSSL` you can privide your own `certs.hpp` file on `include/pockethttp/TLS/certs.hpp`. The default one is created from the [`Mozilla CA Certificates`](https://curl.se/docs/caextract.html).
 
 ```bash
 # This command will create the certs.hpp file
@@ -78,12 +78,15 @@ You can see simple examples in [`examples/`](./examples/):
 
 ## 📋 API Reference
 
+TODO
+
 ## 🔧 Configuration
 
 ### Compile-Time Options
 
-- `POCKET_HTTP_USE_BEARSSL`: Enable HTTPS support (recommended). WIthout this flag the TLSSocket wont be registered in SocketPool, so you can register your own implementation for HTTPS using a `SocketWrapper`.
-- `POCKET_HTTP_LOGS`: Enable detailed logging for debugging
+- `USE_POCKET_HTTP_BEARSSL`: Enable HTTPS support (recommended). WIthout this flag the TLSSocket wont be registered in SocketPool, so you can register your own implementation for HTTPS using a `SocketWrapper`.
+- `USE_POCKET_HTTP_LOG`: Enable detailed information logging for debugging (only `std::cout`).
+- `USE_POCKET_HTTP_ERR`: Enable detailed error logging for debugging (only `std::cerr`).
 
 ## 🎯 Use Cases
 
