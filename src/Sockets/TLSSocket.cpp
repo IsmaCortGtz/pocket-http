@@ -313,8 +313,9 @@ namespace pockethttp {
       return pockethttp::Buffer::error;
     }
 
+    pockethttp_log("[TLSSocket] Waiting for data with timeout: " << timeout << " ms on descriptor: " << this->socket_fd_);
     int select_result = select(this->socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout_);
-    pockethttp_log("[TLSSocket] Select result: " << select_result);
+    pockethttp_log("[TLSSocket] Select result: " << select_result << " with descriptor: " << this->socket_fd_);
 
     if (select_result == SOCKET_ERROR) {
       #ifdef _WIN32
