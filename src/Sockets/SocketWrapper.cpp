@@ -240,7 +240,7 @@ namespace pockethttp {
                 } else {
                     fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
                     int new_flags = fcntl(sock, F_GETFL, 0);
-                    pockethttp_log("[SocketWrapper] Socket flags after F_SETFL: " << new_flags);
+                    pockethttp_log("[SocketWrapper] Socket (" << sock << ") flags after F_SETFL: " << new_flags);
                 }
               #endif
                         
