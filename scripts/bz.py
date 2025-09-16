@@ -236,10 +236,11 @@ def build_compiler_cmd():
             print('ERR: Unsupported target architecture for macOS cross-compile: %s' % target_arch)
             sys.exit(1)
     elif BZ_ISWIN:
-        if arch == 'x64' and target_arch not in ['x64', 'x86']:
-            print('ERR: Unable to cross-compile: target %s host %s' % (target_arch, arch))
-            sys.exit(1)
-        elif arch != target_arch:
+        if arch == 'x64' and target_arch in ['x64', 'x86']:
+            pass
+        elif arch == target_arch:
+            pass
+        else:
             print('ERR: Unable to cross-compile: target %s host %s' % (target_arch, arch))
             sys.exit(1)
     else:
