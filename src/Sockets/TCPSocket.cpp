@@ -109,8 +109,8 @@ namespace pockethttp {
     // Wait a short time period to see if there is data.
     // This avoids blocking indefinitely.
     struct timeval timeout_;
-    timeout_.tv_sec = 0; // 0s
-    timeout_.tv_usec = timeout * 1000; // Xms (default 30000ms [30s])
+    timeout_.tv_sec = timeout / 1000; // seconds
+    timeout_.tv_usec = (timeout % 1000) * 1000; // microseconds
 
     int select_result = select(this->socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout_);
     pockethttp_log("[TCPSocket] Select result: " << select_result);
