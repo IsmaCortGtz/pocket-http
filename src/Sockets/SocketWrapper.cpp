@@ -235,7 +235,13 @@ namespace pockethttp {
                 ioctlsocket(sock, FIONBIO, &mode);
               #else
                 int flags = fcntl(sock, F_GETFL, 0);
-                fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+                if (flags == -1) {
+                    pockethttp_error("[SocketWrapper] fcntl(F_GETFL) failed: " << strerror(errno));
+                } else {
+                    fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+                    int new_flags = fcntl(sock, F_GETFL, 0);
+                    pockethttp_log("[SocketWrapper] Socket flags after F_SETFL: " << new_flags);
+                }
               #endif
                         
               for (size_t j = 0; j < sockets.size(); ++j) {
