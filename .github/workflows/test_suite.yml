@@ -59,6 +59,11 @@ jobs:
         rm -rf ./src/Sockets
         rm -rf ./include/pockethttp
 
+    - name: List Dist and Src
+      run: |
+        tree ./dist/
+        tree ./src/
+
     - name: Install Libraries
       run: |
         sudo apt-get update
