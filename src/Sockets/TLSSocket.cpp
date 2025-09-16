@@ -307,6 +307,12 @@ namespace pockethttp {
     timeout_.tv_sec = 0; // 0s
     timeout_.tv_usec = timeout * 1000; // Xms (default 30000ms [30s])
 
+    if (this->socket_fd_ == INVALID_SOCKET || this->socket_fd_ < 0) {
+      pockethttp_error("[TLSSocket] Select called with invalid socket: " << this->socket_fd_);
+      this->disconnect();
+      return pockethttp::Buffer::error;
+    }
+
     int select_result = select(this->socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout_);
     pockethttp_log("[TLSSocket] Select result: " << select_result);
 
