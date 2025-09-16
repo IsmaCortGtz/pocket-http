@@ -314,8 +314,9 @@ namespace pockethttp {
     }
 
     #ifndef _WIN32
+      int flags = fcntl(this->socket_fd_, F_GETFL, 0);
       int status = fcntl(this->socket_fd_, F_GETFD);
-      pockethttp_log("[TLSSocket] Socket FD status: " << status << " (" << errno << ") " << strerror(errno));
+      pockethttp_log("[TLSSocket] Socket FD status: " << status << " (" << errno << ") " << strerror(errno) << ", flags: " << flags);
     #endif
 
     pockethttp_log("[TLSSocket] Waiting for data with timeout: " << timeout << " ms on descriptor: " << this->socket_fd_);
