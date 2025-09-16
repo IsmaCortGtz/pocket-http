@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from cryptography import x509
 from cryptography.utils import CryptographyDeprecationWarning
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
