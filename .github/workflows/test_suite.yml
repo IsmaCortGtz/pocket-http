@@ -112,6 +112,7 @@ jobs:
         path: dist
 
     - name: Delete Non Amalgamated Files
+      shell: cmd
       run: |
         del .\src\*.cpp
         rmdir /s /q .\src\Sockets
