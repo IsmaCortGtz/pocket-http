@@ -1,4 +1,6 @@
 # pocket-http
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FIsmaCortGtz%2Fpocket-http.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FIsmaCortGtz%2Fpocket-http?ref=badge_shield)
+
 
 A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-compact package.
 
@@ -135,3 +137,6 @@ This is a focused, production-ready library. Contributions should maintain the z
 ---
 
 **pocket-http** - When you need HTTP/HTTPS that just works, everywhere, with zero hassle.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FIsmaCortGtz%2Fpocket-http.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FIsmaCortGtz%2Fpocket-http?ref=badge_large)
