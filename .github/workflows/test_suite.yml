@@ -61,8 +61,7 @@ jobs:
 
     - name: List Dist and Src
       run: |
-        tree ./dist/
-        tree ./src/
+        tree .
 
     - name: Install Libraries
       run: |
