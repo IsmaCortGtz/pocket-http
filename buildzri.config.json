@@ -17,7 +17,7 @@
             "examples/amalgamated.cpp",
             "include/miniz/miniz.c",
             "src/bearssl/**/*.c",
-            "dist/pockethttp.cpp"
+            "dist/*.cpp"
         ]
     },
     "options": {
