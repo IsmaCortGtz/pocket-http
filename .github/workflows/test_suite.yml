@@ -200,6 +200,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: amalgamated-files
+        path: dist
 
     - name: Create Release Zip
       uses: vimtor/action-zip@v1
