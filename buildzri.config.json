@@ -5,18 +5,16 @@
     "output": "./bin/pocket-http_${BZ_OS}_${BZ_TARGET_ARCH}",
     "include": {
         "*": [
-            ".",
-            "include",
-            "include/bearssl",
-            "src/bearssl"
+            "dist",
+            "include"
         ]
     },
     "source": {
         "*": [
-            "examples/basic_request.cpp",
+            "examples/amalgamated.cpp",
             "include/miniz/miniz.c",
             "src/bearssl/**/*.c",
-            "src/**/*.cpp"
+            "dist/pockethttp.cpp"
         ]
     },
     "options": {

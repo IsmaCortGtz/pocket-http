@@ -1,9 +1,9 @@
 #ifndef POCKET_HTTP_DECOMPRESS_HPP
 #define POCKET_HTTP_DECOMPRESS_HPP
 
+#include <miniz/miniz.h>
 #include <cstddef>
 #include <cstdint>
-#include <miniz/miniz.h>
 #include <functional>
 
 #define POCKET_HTTP_DECOMPRESS_OUTPUT_CHUNK_SIZE 16384 // 16 kb

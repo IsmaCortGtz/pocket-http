@@ -1,5 +1,7 @@
 bin/
+dist/
 .vscode/
+*.zip
 *.pem
 *.der
 *.crt
