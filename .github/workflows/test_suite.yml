@@ -52,6 +52,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: amalgamated-files
+        path: dist
     
     - name: Delete Non Amalgamated Files
       run: |
@@ -59,7 +60,7 @@ jobs:
         rm -rf ./src/Sockets
         rm -rf ./include/pockethttp
 
-    - name: List Dist and Src
+    - name: List Directory Contents
       run: |
         tree .
 
@@ -108,6 +109,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: amalgamated-files
+        path: dist
 
     - name: Delete Non Amalgamated Files
       run: |
@@ -151,6 +153,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: amalgamated-files
+        path: dist
     
     - name: Delete Non Amalgamated Files
       run: |
