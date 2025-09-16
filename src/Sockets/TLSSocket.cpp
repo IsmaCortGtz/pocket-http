@@ -313,6 +313,11 @@ namespace pockethttp {
       return pockethttp::Buffer::error;
     }
 
+    #ifndef _WIN32
+      int status = fcntl(this->socket_fd_, F_GETFD);
+      pockethttp_log("[TLSSocket] Socket FD status: " << status << " (" << errno << ") " << strerror(errno));
+    #endif
+
     pockethttp_log("[TLSSocket] Waiting for data with timeout: " << timeout << " ms on descriptor: " << this->socket_fd_);
     int select_result = select(this->socket_fd_ + 1, &read_fds, nullptr, nullptr, &timeout_);
     pockethttp_log("[TLSSocket] Select result: " << select_result << " with descriptor: " << this->socket_fd_);
