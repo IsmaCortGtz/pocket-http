@@ -48,7 +48,7 @@ jobs:
         fi
       
     - name: Run Binary
-      run: ./bin/pocket-http_linux_${{ matrix.arch }} GET "https://www.example.com"
+      run: ./bin/pocket-http_linux_${{ matrix.arch }} "https://www.example.com"
 
   build-windows:
     runs-on: windows-2022
@@ -76,7 +76,7 @@ jobs:
       shell: cmd
       
     - name: Run Binary
-      run: .\bin\pocket-http_win_${{ matrix.arch }}.exe GET "https://www.example.com"
+      run: .\bin\pocket-http_win_${{ matrix.arch }}.exe "https://www.example.com"
       shell: cmd
 
   build-darwin:
@@ -114,4 +114,4 @@ jobs:
         fi
         
     - name: Run Binary
-      run: ./bin/pocket-http_mac_${{ matrix.arch }} GET "https://www.example.com"
+      run: ./bin/pocket-http_mac_${{ matrix.arch }} "https://www.example.com"
