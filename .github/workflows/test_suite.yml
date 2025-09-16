@@ -13,7 +13,7 @@ jobs:
           - arch: x64
             runner: ubuntu-22.04
           - arch: arm64
-            runner: ubuntu-22.04-arm64
+            runner: ubuntu-22.04-arm
     runs-on: ${{ matrix.runner }}
 
     steps:
