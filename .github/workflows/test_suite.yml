@@ -192,6 +192,8 @@ jobs:
   release:
     needs: build-darwin
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -207,6 +209,9 @@ jobs:
       with:
         files: ./dist/pockethttp.hpp ./dist/pockethttp.cpp
         dest: ./dist/pockethttp-v${{ github.event.inputs.version }}.zip
+    
+    - name: List dist directory contents
+      run: tree .
     
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1
