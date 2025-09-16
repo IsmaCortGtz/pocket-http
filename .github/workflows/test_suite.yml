@@ -52,6 +52,12 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: amalgamated-files
+    
+    - name: Delete Non Amalgamated Files
+      run: |
+        rm -f ./src/*.cpp
+        rm -rf ./src/Sockets
+        rm -rf ./include/pockethttp
 
     - name: Install Libraries
       run: |
@@ -99,6 +105,12 @@ jobs:
       with:
         name: amalgamated-files
 
+    - name: Delete Non Amalgamated Files
+      run: |
+        del .\src\*.cpp
+        rmdir /s /q .\src\Sockets
+        rmdir /s /q .\include\pockethttp
+
     - name: Build
       run: python ./scripts/bz.py --target_arch ${{ matrix.arch }} --verbose
       shell: cmd
@@ -135,6 +147,12 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: amalgamated-files
+    
+    - name: Delete Non Amalgamated Files
+      run: |
+        rm -f ./src/*.cpp
+        rm -rf ./src/Sockets
+        rm -rf ./include/pockethttp
 
     - name: Install build dependencies
       run: |

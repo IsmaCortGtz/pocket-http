@@ -5,8 +5,11 @@
     "output": "./bin/pocket-http_${BZ_OS}_${BZ_TARGET_ARCH}",
     "include": {
         "*": [
+            ".",
             "dist",
-            "include"
+            "include",
+            "include/bearssl",
+            "src/bearssl"
         ]
     },
     "source": {
