@@ -7,7 +7,6 @@ import platform
 import json
 import glob
 import argparse
-import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--verbose', action='store_true')
@@ -16,6 +15,7 @@ args = parser.parse_args()
 
 C = {}
 
+RSP_FILENAME = 'buildzri.rsp'
 BZ_VERSION = '1.0.0'
 BZ_CONFIG_FILE = 'buildzri.config.json'
 BZ_OS = platform.system().lower()
@@ -28,7 +28,7 @@ def get_arch(short_names = True):
 
     if short_names and (arch in ['x86_64', 'amd64']):
         arch = 'x64'
-
+    
     if short_names and (arch in ['i386', 'i486', 'i586', 'i686', 'i786']):
         arch = 'x86'
 
@@ -197,6 +197,22 @@ def get_options():
             opts += '%s ' % apply_template_vars(entry)
     return opts
 
+def get_rsp_file():
+    rsp_content = ''
+    rsp_content += get_includes()
+    rsp_content += get_definitions()
+    rsp_content += get_source_files()
+
+    with open(RSP_FILENAME, 'w') as rsp_file:
+        rsp_file.write(rsp_content)
+    return '@%s ' % RSP_FILENAME
+
+def clean_rsp_file():
+    try:
+        os.remove(RSP_FILENAME)
+    except OSError:
+        pass
+
 def build_compiler_cmd():
 
     arch = get_arch()
@@ -207,9 +223,7 @@ def build_compiler_cmd():
         cmd += '%s && ' % configure_vs_tools()
     cmd += get_compiler()
     cmd += get_std()
-    cmd += get_includes()
-    cmd += get_source_files()
-    cmd += get_definitions()
+    cmd += get_rsp_file()
     cmd += get_options()
     cmd += get_target()
 
@@ -222,8 +236,11 @@ def build_compiler_cmd():
             print('ERR: Unsupported target architecture for macOS cross-compile: %s' % target_arch)
             sys.exit(1)
     elif BZ_ISWIN:
-        if target_arch not in ['x86', 'x64', 'arm64']:
-            print('ERR: Unsupported target architecture for Windows cross-compile: %s' % target_arch)
+        if arch == 'x64' and target_arch not in ['x64', 'x86']:
+            print('ERR: Unable to cross-compile: target %s host %s' % (target_arch, arch))
+            sys.exit(1)
+        elif arch != target_arch:
+            print('ERR: Unable to cross-compile: target %s host %s' % (target_arch, arch))
             sys.exit(1)
     else:
         if target_arch != arch:
@@ -236,36 +253,12 @@ def compile(cmd):
 
     if args.verbose:
         print('Running command: %s' % cmd)
+        print(os.linesep + '@%s contents:' % RSP_FILENAME)
+        with open(RSP_FILENAME) as rsp_file:
+            print(rsp_file.read())
 
-    if BZ_ISWIN and len(cmd) > 8000:
-        try:
-            fd, path = tempfile.mkstemp(suffix='.rsp', prefix='bz-')
-            with os.fdopen(fd, 'w') as f:
-                cmd_parts = cmd.split('&& cl ')
-                if len(cmd_parts) == 2:
-                    vs_setup = cmd_parts[0] + '&& cl '
-                    cl_args = cmd_parts[1]
-                    f.write(cl_args)
-                    f.flush()
-                        
-                    new_cmd = vs_setup + '@' + path
-                    if args.verbose:
-                        print('Using response file: %s' % path)
-                        print('Modified command: %s' % new_cmd)
-                        
-            if len(cmd_parts) == 2:
-                exit_code = subprocess.call(new_cmd, shell=True)
-            else:
-                exit_code = subprocess.call(cmd, shell=True)
-        finally:
-            if os.path.exists(path):
-                try:
-                    os.unlink(path)
-                except PermissionError:
-                    pass
-    else:
-        exit_code = subprocess.call(cmd, shell = True)
-    
+    exit_code = subprocess.call(cmd, shell = True)
+    clean_rsp_file()
     msg = ''
     if exit_code == 0:
         msg = 'OK: %s compiled into %s' % (C['name'], get_target_name())

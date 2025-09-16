@@ -53,8 +53,18 @@ def process_file(file_path):
   return new_lines
 
 
+def load_license():
+  formated_license = "/*" + os.linesep
+  with open("LICENSE", "r") as f:
+    for line in f:
+      formated_license += " * " + line
+  formated_license += " */" + os.linesep + os.linesep
+  return formated_license
+
+
 def generate_header():
-  merged_header = "// Auto-generated merged header" + os.linesep + os.linesep
+  merged_header = load_license()
+  merged_header += "// Auto-generated merged header" + os.linesep + os.linesep
   
   for header in headers:
     res = process_file(os.path.join("include", header + ".hpp"))
@@ -67,7 +77,8 @@ def generate_header():
 
 
 def generate_cpp():
-  merged_cpp = "// Auto-generated merged cpp" + os.linesep
+  merged_cpp = load_license()
+  merged_cpp += "// Auto-generated merged cpp" + os.linesep
   merged_cpp += f'#include "{os.path.basename(output_header)}"' + os.linesep + os.linesep
   
   for header in headers:
