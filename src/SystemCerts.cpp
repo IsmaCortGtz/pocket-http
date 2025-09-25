@@ -21,7 +21,7 @@
 #if defined(_WIN32)
   #include <windows.h>
   #include <wincrypt.h>
-#else if defined(__APPLE__)
+#elif defined(__APPLE__)
   #include <Security/Security.h>
   #include <CoreFoundation/CoreFoundation.h>
 #endif
