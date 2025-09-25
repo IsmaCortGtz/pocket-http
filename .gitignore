@@ -1,6 +1,8 @@
 bin/
 dist/
 .vscode/
+*.rsp
+*.rsp.*
 *.zip
 *.pem
 *.der

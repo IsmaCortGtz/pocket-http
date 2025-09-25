@@ -31,6 +31,7 @@
 #include "pockethttp/Headers.hpp"
 #include "pockethttp/Request.hpp"
 #include "pockethttp/Response.hpp"
+#include "pockethttp/SystemCerts.hpp"
 #include "pockethttp/Sockets/SocketWrapper.hpp"
 #include "pockethttp/Sockets/TCPSocket.hpp"
 #include "pockethttp/Sockets/TLSSocket.hpp"

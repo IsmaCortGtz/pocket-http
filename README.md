@@ -76,7 +76,16 @@ python scripts/bz.py
 
 You can see simple examples in [`examples/`](./examples/):
 
+> [!IMPORTANT]  
+> The `buildzri.config.json` file is configured to use the amalgamated version by default, to use the separated version replace `dist/*.cpp` under the `source.*` with `src/*.cpp`.
+
 - [basic_request.cpp](./examples/basic_request.cpp)
+- [download.cpp](./examples/download.cpp)
+- [form_data.cpp](./examples/form_data.cpp)
+- [form_urlencoded.cpp](./examples/form_urlencoded.cpp)
+- [send_file.cpp](./examples/send_file.cpp)
+- [send_json.cpp](./examples/send_json.cpp)
+- [systemcerts.cpp](./examples/systemcerts.cpp)
 
 ## 📋 API Reference
 
@@ -89,6 +98,7 @@ TODO
 - `USE_POCKET_HTTP_BEARSSL`: Enable HTTPS support (recommended). WIthout this flag the TLSSocket wont be registered in SocketPool, so you can register your own implementation for HTTPS using a `SocketWrapper`.
 - `USE_POCKET_HTTP_LOG`: Enable detailed information logging for debugging (only `std::cout`).
 - `USE_POCKET_HTTP_ERR`: Enable detailed error logging for debugging (only `std::cerr`).
+- `USE_POCKET_HTTP_MOZILLA_ROOT_CERTS`: Enable Mozilla Root Certificates for HTTPS.
 
 ## 🎯 Use Cases
 
@@ -131,8 +141,11 @@ This is a focused, production-ready library. Contributions should maintain the z
 ## 📜 License
 
 - pocket-http: MIT. Copyright (c) 2025 Ismael Cortés Gutiérrez.
-- miniz: MIT from [richgel999/miniz](https://github.com/richgel999/miniz). Copyright 2013-2014 RAD Game Tools and Valve Software. Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
-- bearssl: MIT from [bearssl.org](https://bearssl.org/). Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>
+- miniz: MIT from [richgel999/miniz](https://github.com/richgel999/miniz). 
+Copyright 2013-2014 RAD Game Tools and Valve Software. Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC.
+- bearssl: MIT from [bearssl.org](https://bearssl.org/). 
+Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>.
+- base64: Base64 encoder/decoder library: MIT from [tobiaslocker/base64](). Copyright (c) 2019 Tobias Locker.
 
 ---
 

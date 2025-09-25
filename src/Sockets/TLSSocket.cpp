@@ -2,10 +2,11 @@
 #include "pockethttp/Logs.hpp"
 #include "pockethttp/Timestamp.hpp"
 #include "pockethttp/Buffer.hpp"
+#include "pockethttp/SystemCerts.hpp"
 
 #ifdef USE_POCKET_HTTP_BEARSSL
 
-#include "pockethttp/Sockets/certs.hpp"
+
 #include <chrono>
 #include <cstring>
 #include <iostream>
@@ -87,8 +88,8 @@ namespace pockethttp {
 
 
   bool TLSSocket::loadCerts() {
-    this->trust_anchors_ = (br_x509_trust_anchor*)TAs;
-    this->trust_anchors_count_ = TAs_NUM;
+    this->trust_anchors_ = pockethttp::SystemCerts::getCerts();
+    this->trust_anchors_count_ = pockethttp::SystemCerts::getCertsSize();
     return true;
   }
 

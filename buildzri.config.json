@@ -25,6 +25,10 @@
             "-no-pie",
             "-Os"
         ],
+        "darwin": [
+            "-no-pie",
+            "-Os"
+        ],
         "windows": [
             "/utf-8",
             "/EHsc",
