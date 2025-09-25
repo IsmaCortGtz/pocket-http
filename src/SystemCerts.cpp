@@ -203,11 +203,11 @@ namespace pockethttp {
   }
 
   void SystemCerts::cleanup() {
-#ifdef USE_POCKET_HTTP_MOZILLA_ROOT_CERTS
-    int end = static_cast<int>(certs.size() - TAs_NUM);
-#else
-    int end = static_cast<int>(certs.size());
-#endif
+    #ifdef USE_POCKET_HTTP_MOZILLA_ROOT_CERTS
+      int end = static_cast<int>(certs.size() - TAs_NUM);
+    #else
+      int end = static_cast<int>(certs.size());
+    #endif
 
     if (end <= 0) return;
     pockethttp_log("[SystemCerts] Cleaning up " << end << " loaded CA certificates.");
@@ -251,7 +251,7 @@ namespace pockethttp {
     #if defined(_WIN32)
       
       pockethttp_log("[SystemCerts] Loading system CA certificates for Windows.");
-      HCERTSTORE hStore = CertOpenSystemStore(NULL, L"ROOT");
+      HCERTSTORE hStore = CertOpenSystemStoreW(NULL, L"ROOT");
       if (!hStore) {
         pockethttp_error("[SystemCerts] Failed to open ROOT certificate store.");
         return;
