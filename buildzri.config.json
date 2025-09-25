@@ -1,7 +1,7 @@
 {
     "std": "c++17",
     "name": "pocket-http",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "output": "./bin/pocket-http_${BZ_OS}_${BZ_TARGET_ARCH}",
     "include": {
         "*": [
