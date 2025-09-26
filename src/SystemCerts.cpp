@@ -286,6 +286,8 @@ namespace pockethttp {
       const void *values[] = { kSecClassCertificate, kCFBooleanTrue, kSecMatchLimitAll };
 
       query = CFDictionaryCreate(nullptr, keys, values, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+      pockethttp_log("[SystemCerts] [DEBUG] Created query dictionary");
+      
       OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)&certsArray);
       CFRelease(query);
 
@@ -294,29 +296,60 @@ namespace pockethttp {
         return;
       }
 
+      pockethttp_log("[SystemCerts] [DEBUG] Successfully retrieved certificates from Keychain");
       CFIndex count = CFArrayGetCount(certsArray);
+      pockethttp_log("[SystemCerts] [DEBUG] Total certificates found in Keychain: " << count);
+      
       short counter = 0;
+      short skipped_null_cert = 0;
+      short skipped_null_data = 0;
+      short failed_conversion = 0;
+      
       for (CFIndex i = 0; i < count; i++) {
+        pockethttp_log("[SystemCerts] [DEBUG] Processing certificate " << (i + 1) << "/" << count);
+        
         SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certsArray, i);
-        if (!cert) continue;
+        if (!cert) {
+          pockethttp_log("[SystemCerts] [DEBUG] Certificate " << (i + 1) << " is null, skipping");
+          skipped_null_cert++;
+          continue;
+        }
 
         CFDataRef certData = SecCertificateCopyData(cert);
-        if (!certData) continue;
+        if (!certData) {
+          pockethttp_log("[SystemCerts] [DEBUG] Certificate " << (i + 1) << " data is null, skipping");
+          skipped_null_data++;
+          continue;
+        }
 
         const UInt8 *bytes = CFDataGetBytePtr(certData);
         CFIndex len = CFDataGetLength(certData);
+        pockethttp_log("[SystemCerts] [DEBUG] Certificate " << (i + 1) << " data length: " << len << " bytes");
 
         
         br_x509_trust_anchor ta;
         std::vector<unsigned char> buf(bytes, bytes + len);
-        if (!pockethttp::Certificates::der2Anchor(buf, &ta)) pockethttp_error("[SystemCerts] Failed to convert DER to trust anchor.");
+        if (!pockethttp::Certificates::der2Anchor(buf, &ta)) {
+          pockethttp_error("[SystemCerts] [DEBUG] Failed to convert DER to trust anchor for certificate " << (i + 1));
+          failed_conversion++;
+          CFRelease(certData);
+          continue;
+        }
           
         counter++;  
+        pockethttp_log("[SystemCerts] [DEBUG] Successfully converted certificate " << (i + 1) << " to trust anchor");
         certs.push_back(std::move(ta));
 
         CFRelease(certData);
       }
 
+      pockethttp_log("[SystemCerts] [DEBUG] Final statistics:");
+      pockethttp_log("[SystemCerts] [DEBUG] - Total certificates processed: " << count);
+      pockethttp_log("[SystemCerts] [DEBUG] - Successfully loaded: " << counter);
+      pockethttp_log("[SystemCerts] [DEBUG] - Skipped (null cert): " << skipped_null_cert);
+      pockethttp_log("[SystemCerts] [DEBUG] - Skipped (null data): " << skipped_null_data);
+      pockethttp_log("[SystemCerts] [DEBUG] - Failed conversion: " << failed_conversion);
+      
       CFRelease(certsArray);
     
     #elif defined(__linux__) || defined(__FreeBSD__)
