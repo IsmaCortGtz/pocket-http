@@ -54,7 +54,7 @@ jobs:
 
         # Split certificates into individual files (macOS compatible)
         cd /tmp
-        awk 'BEGIN {c=0;} /-----BEGIN CERTIFICATE-----/ {f=sprintf("cert-%03d.crt", c++);} {print > f}' /tmp/cacert.pem
+        csplit -s -f cert- /tmp/cacert.pem '/-----BEGIN CERTIFICATE-----/' '{9999}' || true
         
         # Rename files to have .crt extension
         for f in cert-*; do
