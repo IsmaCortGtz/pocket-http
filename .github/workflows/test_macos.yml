@@ -1,0 +1,103 @@
+name: Test macOS Build
+
+on:
+  workflow_dispatch:
+    inputs: 
+      version: 
+        type: string
+        description: 'Version number Eg: 4.2.0' 
+
+jobs:
+  amalgamate:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Make amalgamate script executable
+      run: chmod +x ./scripts/amalgamate.py
+
+    - name: Amalgamate
+      run: ./scripts/amalgamate.py
+
+    - name: Upload amalgamated files
+      uses: actions/upload-artifact@v4
+      with:
+        name: amalgamated-files
+        path: dist
+
+  build-darwin:
+    needs: amalgamate
+    runs-on: macos-14
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [x64, arm64]
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: List System Keychain Certificates
+      run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
+    
+    - name: Install CA certificates bundle
+      run: |
+        # Download Mozilla's CA bundle directly
+        curl -o /tmp/cacert.pem https://curl.se/ca/cacert.pem
+
+        # Split certificates into individual files
+        csplit -f /tmp/cert- -b %03d.crt /tmp/cacert.pem '/-----BEGIN CERTIFICATE-----/' '{*}'
+
+        # Import each certificate into the System keychain
+        for f in /tmp/cert-*.crt; do
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$f"
+        done
+    
+    - name: List System Keychain Certificates After Import
+      run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
+
+    - name: Download amalgamated files
+      uses: actions/download-artifact@v4
+      with:
+        name: amalgamated-files
+        path: dist
+    
+    - name: Delete Non Amalgamated Files
+      run: |
+        rm -f ./src/*.cpp
+        rm -rf ./src/Sockets
+        rm -rf ./include/pockethttp
+
+    - name: Install build dependencies
+      run: |
+        # Ensure we have the necessary build tools
+        xcode-select --install || true
+
+    - name: Make build script executable
+      run: chmod +x ./scripts/bz.py
+
+    - name: Build
+      run: ./scripts/bz.py --target_arch ${{ matrix.arch }}  --verbose
+
+    - name: Make binary executable
+      run: chmod +x ./bin/pocket-http_mac_${{ matrix.arch }}
+        
+    - name: List bin directory contents
+      run: ls -la ./bin/
+      
+    - name: Verify binary exists
+      run: |
+        if [ ! -f "./bin/pocket-http_mac_${{ matrix.arch }}" ]; then
+          echo "Binary not found!"
+          exit 1
+        fi
+        
+    - name: Run Binary
+      run: ./bin/pocket-http_mac_${{ matrix.arch }} "https://www.example.com"
