@@ -149,6 +149,25 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+    
+    - name: List System Keychain Certificates
+      run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
+    
+    - name: Install CA certificates bundle
+      run: |
+        # Download Mozilla's CA bundle directly
+        curl -o /tmp/cacert.pem https://curl.se/ca/cacert.pem
+
+        # Split certificates into individual files
+        csplit -f /tmp/cert- -b %03d.crt /tmp/cacert.pem '/-----BEGIN CERTIFICATE-----/' '{*}'
+
+        # Import each certificate into the System keychain
+        for f in /tmp/cert-*.crt; do
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$f"
+        done
+    
+    - name: List System Keychain Certificates After Import
+      run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
 
     - name: Download amalgamated files
       uses: actions/download-artifact@v4
