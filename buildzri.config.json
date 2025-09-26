@@ -26,8 +26,9 @@
             "-Os"
         ],
         "darwin": [
-            "-no-pie",
-            "-Os"
+            "-Os",
+            "-framework CoreFoundation",
+            "-framework Security"
         ],
         "windows": [
             "/utf-8",

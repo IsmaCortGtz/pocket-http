@@ -267,7 +267,7 @@ namespace pockethttp {
         );
         
         br_x509_trust_anchor ta;
-        if (pockethttp::Certificates::der2Anchor(certBuf, &ta)) pockethttp_error("[SystemCerts] Failed to convert DER to trust anchor.");
+        if (!pockethttp::Certificates::der2Anchor(certBuf, &ta)) pockethttp_error("[SystemCerts] Failed to convert DER to trust anchor.");
         
         certs.push_back(std::move(ta));
         counter++;
