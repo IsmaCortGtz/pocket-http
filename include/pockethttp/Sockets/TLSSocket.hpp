@@ -9,7 +9,13 @@
 #include <string>
 
 // Include BearSSL headers directly instead of forward declarations
-#include <bearssl/bearssl.h>
+#if __has_include("bearssl.h")
+  #include <bearssl.h>
+#elif __has_include("bearssl/bearssl.h")
+  #include <bearssl/bearssl.h>
+#else
+  #error "Cannot find bearssl.h or bearssl/bearssl.h"
+#endif
 
 #ifdef _WIN32
 #include <winsock2.h>

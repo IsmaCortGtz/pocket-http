@@ -13,7 +13,14 @@
 #include <stdexcept>
 #include <string>
 #include <stdio.h>
-#include <bearssl/bearssl.h>
+
+#if __has_include("bearssl.h")
+  #include <bearssl.h>
+#elif __has_include("bearssl/bearssl.h")
+  #include <bearssl/bearssl.h>
+#else
+  #error "Cannot find bearssl.h or bearssl/bearssl.h"
+#endif
 
 #ifdef _WIN32
   #include <winsock2.h>
@@ -88,8 +95,8 @@ namespace pockethttp {
 
 
   bool TLSSocket::loadCerts() {
-    this->trust_anchors_ = pockethttp::SystemCerts::getCerts();
-    this->trust_anchors_count_ = pockethttp::SystemCerts::getCertsSize();
+    this->trust_anchors_ = pockethttp::SystemCerts::getBearSSLTrustAnchors();
+    this->trust_anchors_count_ = pockethttp::SystemCerts::getBearSSLTrustAnchorsSize();
     return true;
   }
 

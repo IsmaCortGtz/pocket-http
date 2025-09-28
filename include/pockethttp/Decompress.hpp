@@ -1,7 +1,14 @@
 #ifndef POCKET_HTTP_DECOMPRESS_HPP
 #define POCKET_HTTP_DECOMPRESS_HPP
 
-#include <miniz/miniz.h>
+#if __has_include("miniz.h")
+  #include <miniz.h>
+#elif __has_include("miniz/miniz.h")
+  #include <miniz/miniz.h>
+#else
+  #error "Cannot find miniz.h or miniz/miniz.h"
+#endif
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>

@@ -79,7 +79,13 @@ def generate_header():
 def generate_cpp():
   merged_cpp = load_license()
   merged_cpp += "// Auto-generated merged cpp" + os.linesep
-  merged_cpp += f'#include "{os.path.basename(output_header)}"' + os.linesep + os.linesep
+  merged_cpp += """#if __has_include("pockethttp.hpp")
+  #include "pockethttp.hpp"
+#elif __has_include("pockethttp/pockethttp.hpp")
+  #include "pockethttp/pockethttp.hpp"
+#else
+  #error "Cannot find pockethttp.hpp"
+#endif""" + os.linesep + os.linesep
   
   for header in headers:
     if not os.path.exists(os.path.join(header.replace("pockethttp", "src", 1) + ".cpp")):

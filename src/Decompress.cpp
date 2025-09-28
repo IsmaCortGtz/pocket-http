@@ -1,6 +1,14 @@
 #include "pockethttp/Logs.hpp"
 #include "pockethttp/Decompress.hpp"
-#include <miniz/miniz.h>
+
+#if __has_include("miniz.h")
+  #include <miniz.h>
+#elif __has_include("miniz/miniz.h")
+  #include <miniz/miniz.h>
+#else
+  #error "Cannot find miniz.h or miniz/miniz.h"
+#endif
+
 #include <stdexcept>
 #include <iostream>
 #include <functional>
