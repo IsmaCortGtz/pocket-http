@@ -2,10 +2,6 @@ name: Test macOS Build
 
 on:
   workflow_dispatch:
-    inputs: 
-      version: 
-        type: string
-        description: 'Version number Eg: 4.2.0' 
 
 jobs:
   amalgamate:
@@ -44,8 +40,19 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
+    - name: List SystemRoot Certificates
+      run: security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain | grep "BEGIN CERTIFICATE" | wc -l
+    
     - name: List System Keychain Certificates
       run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
+
+    - name: List Login Keychain Certificates
+      run: |
+        if [ -f ~/Library/Keychains/login.keychain-db ]; then
+          security find-certificate -a -p ~/Library/Keychains/login.keychain-db | grep "BEGIN CERTIFICATE" | wc -l
+        else
+          echo "0 (Login keychain not found)"
+        fi
 
     - name: Download amalgamated files
       uses: actions/download-artifact@v4

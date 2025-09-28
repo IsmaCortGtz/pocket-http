@@ -247,6 +247,11 @@ namespace pockethttp {
         CFRelease(query);
         CFRelease(searchList);
 
+        if (status == errSecItemNotFound) {
+          pockethttp_log("[SystemCerts] No certificates found in the specified keychain.");
+          return;
+        }
+
         if (status != errSecSuccess || !certsArray) {
           pockethttp_error("[SystemCerts] Failed to retrieve certificates from current keychain.");
           return;
