@@ -46,36 +46,6 @@ jobs:
     
     - name: List System Keychain Certificates
       run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
-    
-    - name: Install CA certificates bundle
-      run: |
-        # Download Mozilla's CA bundle directly
-        curl -o /tmp/cacert.pem https://curl.se/ca/cacert.pem
-
-        # Split certificates into individual files (macOS compatible)
-        cd /tmp
-        csplit -s -f cert- /tmp/cacert.pem '/-----BEGIN CERTIFICATE-----/' '{9999}' || true
-        
-        # Rename files to have .crt extension
-        for f in cert-*; do
-          if [ -f "$f" ] && [ -s "$f" ]; then
-            mv "$f" "${f}.crt"
-          fi
-        done
-
-        # Import each certificate into the System keychain
-        for f in /tmp/cert-*.crt; do
-          if [ -f "$f" ] && [ -s "$f" ]; then
-            echo "Importing certificate: $f"
-            sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$f" || echo "Failed to import $f"
-          fi
-        done
-        
-        # Clean up
-        rm -f /tmp/cert-*.crt /tmp/cacert.pem
-    
-    - name: List System Keychain Certificates After Import
-      run: security find-certificate -a -p /Library/Keychains/System.keychain | grep "BEGIN CERTIFICATE" | wc -l
 
     - name: Download amalgamated files
       uses: actions/download-artifact@v4
