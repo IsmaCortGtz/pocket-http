@@ -150,7 +150,7 @@ namespace pockethttp {
     // Force handshake by attempting to flush
     if (br_sslio_flush(this->sslio_context_) < 0) {
       int ssl_err = br_ssl_engine_last_error(&this->ssl_client_->eng);
-      pockethttp_error("[TLSSocket] TLS handshake failed during flush: " << ssl_err);
+      pockethttp_error("[TLSSocket] TLS handshake failed during flush: " << ssl_err << " for hostname: " << hostname);
       return false;
     }
     

@@ -336,6 +336,7 @@ namespace pockethttp {
         if (n == 0) continue;
         pockethttp_log("[Http] Received " << n << " bytes from socket.");
         total_bytes_read += n;
+        continue;
       }
 
       // Parse headers
