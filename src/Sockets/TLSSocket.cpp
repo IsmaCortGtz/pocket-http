@@ -3,6 +3,7 @@
 #include "pockethttp/Timestamp.hpp"
 #include "pockethttp/Buffer.hpp"
 #include "pockethttp/SystemCerts.hpp"
+#include "pockethttp/Results.hpp"
 
 #ifdef USE_POCKET_HTTP_BEARSSL
 
@@ -100,7 +101,7 @@ namespace pockethttp {
     return true;
   }
 
-  bool TLSSocket::initializeTLS(const std::string& hostname) {
+  pockethttp::HttpResult TLSSocket::initializeTLS(const std::string& hostname) {
     pockethttp_log("[TLSSocket] Initializing TLS for hostname: " << hostname);
     
     try {
@@ -110,18 +111,18 @@ namespace pockethttp {
       this->sslio_context_ = static_cast<br_sslio_context*>(malloc(sizeof(br_sslio_context)));
         
       if (!this->ssl_client_ || !this->x509_context_ || !this->sslio_context_) {
-        throw std::runtime_error("Failed to allocate TLS contexts.");
+        return pockethttp::HttpResult::FAILED_TO_ALLOCATE_TLS_CONTEXT;
       }
         
       // Allocate I/O buffer
       this->iobuf_ = static_cast<unsigned char*>(malloc(BR_SSL_BUFSIZE_BIDI));
       if (!iobuf_) {
-        throw std::runtime_error("Failed to allocate I/O buffer.");
+        return pockethttp::HttpResult::FAILED_TO_ALLOCATE_IO_BUFFER;
       }
 
       // Load certs
       if (!this->loadCerts()) {
-        throw std::runtime_error("Failed to load trust anchors.");
+        return pockethttp::HttpResult::FAILED_TO_LOAD_CERTIFICATES;
       }
         
       // Initialize the client context with full profile and X.509 validation
@@ -137,21 +138,23 @@ namespace pockethttp {
       br_sslio_init(this->sslio_context_, &this->ssl_client_->eng, this->sock_read, &this->socket_fd_, this->sock_write, &this->socket_fd_);
 
       pockethttp_log("[TLSSocket] TLS initialization successful");
-      return true;  
+      return pockethttp::HttpResult::SUCCESS;
     } catch (const std::exception& e) {
       pockethttp_error("[TLSSocket] TLS initialization failed: " << e.what());
-      return false;
+      return pockethttp::HttpResult::FAILED_TO_INIT_TLS;
     }
   }
 
-  bool TLSSocket::performTLSHandshake(const std::string& hostname) {
+  pockethttp::HttpResult TLSSocket::performTLSHandshake(const std::string& hostname) {
     pockethttp_log("[TLSSocket] Starting TLS handshake for hostname: " << hostname);
     
     // Force handshake by attempting to flush
     if (br_sslio_flush(this->sslio_context_) < 0) {
       int ssl_err = br_ssl_engine_last_error(&this->ssl_client_->eng);
       pockethttp_error("[TLSSocket] TLS handshake failed during flush: " << ssl_err << " for hostname: " << hostname);
-      return false;
+
+      if (ssl_err == BR_ERR_X509_NOT_TRUSTED) return pockethttp::HttpResult::INVALID_CERTIFICATE;
+      else return pockethttp::HttpResult::TLS_FLUSH_ERROR;
     }
     
     // Check final state
@@ -160,12 +163,12 @@ namespace pockethttp {
       int err = br_ssl_engine_last_error(&this->ssl_client_->eng);
       if (err != 0) {
         pockethttp_error("[TLSSocket] TLS handshake failed with SSL error: " << err);
-        return false;
+        return pockethttp::HttpResult::UNKNOWN_ERROR;
       }
     }
 
     pockethttp_log("[TLSSocket] TLS handshake completed successfully");
-    return true;
+    return pockethttp::HttpResult::SUCCESS;
   }
 
   void TLSSocket::cleanupTLS() {
@@ -219,7 +222,7 @@ namespace pockethttp {
     this->disconnect();
   }
 
-  bool TLSSocket::connect(const std::string& host, int port) {
+  pockethttp::HttpResult TLSSocket::connect(const std::string& host, int port) {
     pockethttp_log("[TLSSocket] Attempting to connect to " << host << ":" << port);
 
     if (this->connected_ || this->socket_fd_ != INVALID_SOCKET) {
@@ -228,32 +231,35 @@ namespace pockethttp {
     }
 
     // Create TCP connection
-    bool open_state = this->openTCPSocket(host, port);
-    if (!open_state || this->socket_fd_ == INVALID_SOCKET) {
+    pockethttp::HttpResult open_state = this->openTCPSocket(host, port);
+    if (open_state != pockethttp::HttpResult::SUCCESS || this->socket_fd_ == INVALID_SOCKET) {
       pockethttp_error("[TLSSocket] Failed to create TCP connection.");
       this->disconnect();
-      return false;
+      if (open_state != pockethttp::HttpResult::SUCCESS) return open_state;
+      else return pockethttp::HttpResult::OPEN_TCP_SOCKET_FAILED;
     }
 
     // Initialize TLS
-    if (!this->initializeTLS(host)) {
+    open_state = this->initializeTLS(host);
+    if (open_state != pockethttp::HttpResult::SUCCESS) {
       pockethttp_error("[TLSSocket] Failed to initialize TLS.");
       this->disconnect();
-      return false;
+      return open_state;
     }
 
     // Perform TLS handshake
-    if (!performTLSHandshake(host)) {
+    open_state = this->performTLSHandshake(host);
+    if (open_state != pockethttp::HttpResult::SUCCESS) {
       pockethttp_error("[TLSSocket] TLS handshake failed.");
       this->disconnect();
-      return false;
+      return open_state;
     }
 
     this->connected_ = true;
     this->last_used_timestamp_ = pockethttp::Timestamp::getCurrentTimestamp();
 
     pockethttp_log("[TLSSocket] Successfully connected to " << host << ":" << port);
-    return true;
+    return pockethttp::HttpResult::SUCCESS;
   }
 
   void TLSSocket::disconnect() {

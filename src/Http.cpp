@@ -26,7 +26,7 @@ namespace pockethttp {
   Http::Http(int64_t timeout) : timeout_(timeout) {}
   Http::~Http() {}
 
-  bool Http::request(pockethttp::Request& req, pockethttp::Response& res) {
+  pockethttp::HttpResult Http::request(pockethttp::Request& req, pockethttp::Response& res) {
     pockethttp::Remote remote = pockethttp::utils::parseUrl(req.url);
 
     if (!req.headers.has("Content-Length")) {
@@ -63,7 +63,7 @@ namespace pockethttp {
     return request(remote, req.method, req.headers, res, body_callback);
   }
 
-  bool Http::request(pockethttp::FormDataRequest& req, pockethttp::Response& res) {
+  pockethttp::HttpResult Http::request(pockethttp::FormDataRequest& req, pockethttp::Response& res) {
     pockethttp::Remote remote = pockethttp::utils::parseUrl(req.url);
     std::string boundary = this->generateBoundary();
     size_t total_length = 2 + boundary.size() + 4; // For the final boundary and CRLF
@@ -82,9 +82,14 @@ namespace pockethttp {
           break;
         }
 
-        if (item.filename.empty() || item.content_type.empty()) {
-          pockethttp_error("FormDataItem with value_callback must have filename and content_type set");
-          return false;
+        if (item.filename.empty()) {
+          pockethttp_error("FormDataItem with value_callback must have filename set");
+          return pockethttp::HttpResult::FORMDATA_FILENAME_MISSING;
+        }
+
+        if (item.content_type.empty()) {
+          pockethttp_error("FormDataItem with value_callback must have content_type set");
+          return pockethttp::HttpResult::FORMDATA_CONTENT_TYPE_MISSING;
         }
 
         // file
@@ -530,7 +535,7 @@ namespace pockethttp {
     return end_chunk;
   }
 
-  bool Http::request(
+  pockethttp::HttpResult Http::request(
     pockethttp::Remote& remote,
     std::string& method,
     pockethttp::Headers& headers,
@@ -542,7 +547,7 @@ namespace pockethttp {
     std::shared_ptr<SocketWrapper> socket = SocketPool::getSocket(remote.protocol, remote.host, remote.port);
     if (!socket || socket == nullptr) {
       pockethttp_error("[Http] Failed to get socket: nullptr");
-      return false;
+      return static_cast<pockethttp::HttpResult>(SocketPool::getLastState());
     }
 
     // Set default headers
@@ -556,7 +561,7 @@ namespace pockethttp {
     if (res == pockethttp::Buffer::error) {
       pockethttp_error("[Http] Failed to send request: " << request_str);
       socket->disconnect();
-      return false;
+      return pockethttp::HttpResult::FAILED_SEND_DATA;
     }
 
     // Free request_str memory
@@ -572,9 +577,9 @@ namespace pockethttp {
       read_data = 0;
       bool status = body_callback(buffer, &read_data, POCKET_HTTP_CHUNK_SIZE, total_read);
       if (!status && read_data == pockethttp::Buffer::error) {
-        pockethttp_error("[Http] Body callback error");
+        pockethttp_error("[Http] Request body callback error");
         socket->disconnect();
-        return false;
+        return pockethttp::HttpResult::REQUEST_BODY_CALLBACK_ERROR;
       }
 
       if (!status && read_data == 0) break;
@@ -599,7 +604,7 @@ namespace pockethttp {
       if (res == pockethttp::Buffer::error || res != read_data) {
         pockethttp_error("[Http] Failed to send body data. Sent " << total_read << " of " << read_data << " bytes.");
         socket->disconnect();
-        return false;
+        return pockethttp::HttpResult::FAILED_SEND_DATA;
       }
 
       if (read_data > 0) total_read += read_data;
@@ -610,7 +615,7 @@ namespace pockethttp {
       if (socket->send(reinterpret_cast<const unsigned char*>("0\r\n\r\n"), 5) == pockethttp::Buffer::error) {
         pockethttp_error("[Http] Failed to send chunked transfer encoding footer");
         socket->disconnect();
-        return false;
+        return pockethttp::HttpResult::FAILED_SEND_CHUNKED_DATA;
       }
     }
 
@@ -620,7 +625,7 @@ namespace pockethttp {
     if (read_data == pockethttp::Buffer::error) {
       pockethttp_error("[Http] Failed to parse status line");
       socket->disconnect();
-      return false;
+      return pockethttp::HttpResult::PARSE_STATUS_LINE_FAILED;
     }
 
     // Parse headers
@@ -628,7 +633,7 @@ namespace pockethttp {
     if (read_data == pockethttp::Buffer::error) {
       pockethttp_error("[Http] Failed to parse headers");
       socket->disconnect();
-      return false;
+      return pockethttp::HttpResult::PARSE_HEADERS_FAILED;
     }
 
     // Parse body
@@ -654,7 +659,7 @@ namespace pockethttp {
       pockethttp::DecompressionState state = decompressorPtr->init();
       if (state == pockethttp::DecompressionState::DECOMPRESS_ERROR) {
         socket->disconnect();
-        return false;
+        return pockethttp::HttpResult::DECOMPRESS_RES_FAILED;
       }
 
       // Define decompression callback
@@ -685,12 +690,14 @@ namespace pockethttp {
     }
 
     if (response.headers.get("Transfer-Encoding") != "chunked" && !response.headers.has("Content-Length")) {
-      if (response.version == "HTTP/1.1") return true; // In 1.1 this means no body
+      if (response.version == "HTTP/1.1") return pockethttp::HttpResult::SUCCESS; // In 1.1 this means no body
     }
 
     // Handle transfer-encoding: chunked
     if (response.headers.get("Transfer-Encoding") == "chunked") {
-      return this->handleChunked(response, socket, send_body_callback, buffer, read_data);
+      bool res_status = this->handleChunked(response, socket, send_body_callback, buffer, read_data);
+      if (res_status) return pockethttp::HttpResult::SUCCESS;
+      else return pockethttp::HttpResult::PARSE_CHUNKED_RES_FAILED;
     }
 
     bool isHttp10 = (response.version == "HTTP/1.0");
@@ -711,7 +718,8 @@ namespace pockethttp {
         if (pulled == pockethttp::Buffer::error) {
           pockethttp_error("[Http] Failed to receive body data.");
           socket->disconnect();
-          return (isHttp10 || isConnClose) && !hasContentLength;
+          if ((isHttp10 || isConnClose) && !hasContentLength) return pockethttp::HttpResult::SUCCESS;
+          else return pockethttp::HttpResult::PARSE_RES_BODY_FAILED;
         }
 
         read_data += pulled;
@@ -723,7 +731,7 @@ namespace pockethttp {
       if (read_data == pockethttp::Buffer::error) {
         pockethttp_error("[Http] Failed to handle body's response callback.");
         socket->disconnect();
-        return false;
+        return pockethttp::HttpResult::PARSE_RES_BODY_FAILED;
       }
 
       if (read_data > 0) {
@@ -735,7 +743,7 @@ namespace pockethttp {
 
     } while (true);
 
-    return true;
+    return pockethttp::HttpResult::SUCCESS;
   }
 
 } // namespace pockethttp

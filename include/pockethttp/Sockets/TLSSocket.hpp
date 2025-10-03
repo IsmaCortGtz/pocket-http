@@ -2,6 +2,7 @@
 #define POCKET_HTTP_TLS_SOCKET_HPP
 
 #include "pockethttp/Sockets/SocketWrapper.hpp"
+#include "pockethttp/Results.hpp"
 
 #ifdef USE_POCKET_HTTP_BEARSSL
 
@@ -45,15 +46,15 @@ namespace pockethttp {
 
       // Helper methods
       bool loadCerts();
-      bool initializeTLS(const std::string& hostname);
-      bool performTLSHandshake(const std::string& hostname);
+      pockethttp::HttpResult initializeTLS(const std::string& hostname);
+      pockethttp::HttpResult performTLSHandshake(const std::string& hostname);
       void cleanupTLS();
 
     public:
       TLSSocket();
       ~TLSSocket() override;
 
-      bool connect(const std::string& host, int port) override;
+      pockethttp::HttpResult connect(const std::string& host, int port) override;
       void disconnect() override;
 
       size_t send(const unsigned char* buffer, const size_t size) override;

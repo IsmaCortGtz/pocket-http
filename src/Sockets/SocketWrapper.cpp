@@ -1,5 +1,6 @@
 #include "pockethttp/Sockets/SocketWrapper.hpp"
 #include "pockethttp/Logs.hpp"
+#include "pockethttp/Results.hpp"
 
 #include <string>
 #include <iostream>
@@ -59,7 +60,7 @@ namespace pockethttp {
     }
   #endif // _WIN32
 
-  bool SocketWrapper::openTCPSocket(const std::string& host, int port) {
+  pockethttp::HttpResult SocketWrapper::openTCPSocket(const std::string& host, int port) {
     pockethttp_log("[SocketWrapper] Attempting to connect to " << host << ":" << port);
 
     if (connected_ || socket_fd_ != INVALID_SOCKET) {
@@ -76,7 +77,7 @@ namespace pockethttp {
     int status = getaddrinfo(host.c_str(), port_str.c_str(), &hints, &result);
     if (status != 0) {
       pockethttp_error("[SocketWrapper] Failed to resolve hostname: " << host);
-      return false;
+      return pockethttp::HttpResult::HOSTNAME_RESOLUTION_FAILED;
     }
 
     pockethttp_log("[SocketWrapper] Hostname resolved successfully");
@@ -253,7 +254,7 @@ namespace pockethttp {
               this->last_used_timestamp_ = pockethttp::Timestamp::getCurrentTimestamp();
                         
               freeaddrinfo(result);
-              return true;
+              return pockethttp::HttpResult::SUCCESS;
 
             } else {
               pockethttp_error("[SocketWrapper] Socket connection failed with error: " << error);
@@ -273,7 +274,7 @@ namespace pockethttp {
 
     pockethttp_error("[SocketWrapper] Failed to connect to " << host << ":" << port);
     freeaddrinfo(result);
-    return false;
+    return pockethttp::HttpResult::OPEN_TCP_SOCKET_FAILED;
   }
 
 } // namespace pockethttp

@@ -15,3 +15,5 @@ dist/
 *.dll.*
 *.lib
 *.lib.*
+*.mp4
+*.zip

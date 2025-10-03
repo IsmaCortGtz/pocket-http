@@ -3,6 +3,8 @@
 #include "pockethttp/Sockets/SocketWrapper.hpp"
 #include "pockethttp/Timestamp.hpp"
 #include "pockethttp/Logs.hpp"
+#include "pockethttp/Results.hpp"
+
 #include <string>
 #include <iostream>
 #include <cstring>
@@ -53,7 +55,7 @@ namespace pockethttp {
   }
 
 
-  bool TCPSocket::connect(const std::string &host, int port) {
+  pockethttp::HttpResult TCPSocket::connect(const std::string &host, int port) {
     return this->openTCPSocket(host, port);
   }
 

@@ -4,13 +4,14 @@
 #include "pockethttp/Request.hpp"
 #include "pockethttp/Response.hpp"
 #include "pockethttp/Sockets/SocketWrapper.hpp"
+#include "pockethttp/Results.hpp"
 
 namespace pockethttp {
 
   class Http {
     private:
       int64_t timeout_;
-      bool request(
+      pockethttp::HttpResult request(
         pockethttp::Remote& remote,
         std::string& method,
         pockethttp::Headers& headers,
@@ -50,8 +51,8 @@ namespace pockethttp {
       Http(int64_t timeout);
       ~Http();
 
-      bool request(pockethttp::Request& req, pockethttp::Response& res);
-      bool request(pockethttp::FormDataRequest& req, pockethttp::Response& res);
+      pockethttp::HttpResult request(pockethttp::Request& req, pockethttp::Response& res);
+      pockethttp::HttpResult request(pockethttp::FormDataRequest& req, pockethttp::Response& res);
   };
   
 } // namespace pockethttp

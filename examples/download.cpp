@@ -25,9 +25,9 @@ int main (int argc, char* argv[]) {
 
   // Create HTTP client
   pockethttp::Http http;
-  bool success = http.request(req, res);
-  if (!success) {
-    std::cerr << "Request failed." << std::endl;
+  int success = http.request(req, res);
+  if (success <= 0) {
+    std::cerr << "Request failed: " << pockethttp::getErrorMessage(success) << std::endl;
     std::cout << std::endl;
     return 1;
   }

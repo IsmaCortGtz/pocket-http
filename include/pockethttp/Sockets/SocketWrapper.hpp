@@ -2,6 +2,7 @@
 #define POCKET_HTTP_SOCKETWRAPPER_HPP
 
 #include <string>
+#include "pockethttp/Results.hpp"
 
 #ifdef _WIN32
   #include <winsock2.h>
@@ -38,7 +39,7 @@ namespace pockethttp {
       virtual ~SocketWrapper() = default;
 
       // Conection
-      virtual bool connect(const std::string& host, int port) = 0;
+      virtual pockethttp::HttpResult connect(const std::string& host, int port) = 0;
       virtual void disconnect() = 0;
 
       // Sending and receiving data
@@ -54,7 +55,7 @@ namespace pockethttp {
       int64_t last_used_timestamp_ = 0;
       bool connected_ = false;
 
-      bool openTCPSocket(const std::string& host, int port);
+      pockethttp::HttpResult openTCPSocket(const std::string& host, int port);
   };
 
 } // namespace pockethttp

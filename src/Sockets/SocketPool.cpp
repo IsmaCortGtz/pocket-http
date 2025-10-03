@@ -1,5 +1,6 @@
 #include "pockethttp/Sockets/SocketPool.hpp"
 #include "pockethttp/Sockets/TCPSocket.hpp"
+#include "pockethttp/Results.hpp"
 
 #ifdef USE_POCKET_HTTP_BEARSSL
 #include "pockethttp/Sockets/TLSSocket.hpp"
@@ -11,6 +12,8 @@
 #include <vector>
 
 namespace pockethttp {
+
+  int SocketPool::last_result = pockethttp::HttpResult::SUCCESS;
 
   std::map<std::string, std::vector<std::shared_ptr<pockethttp::SocketWrapper>>> SocketPool::pool_;
   

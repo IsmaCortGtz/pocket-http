@@ -2,6 +2,7 @@
 #define POCKET_HTTP_TCPSOCKET_HPP
 
 #include "pockethttp/Sockets/SocketWrapper.hpp"
+#include "pockethttp/Results.hpp"
 #include <string>
 #include <vector>
 
@@ -20,7 +21,7 @@ namespace pockethttp {
       TCPSocket();
       ~TCPSocket() override;
 
-      bool connect(const std::string& host, int port) override;
+      pockethttp::HttpResult connect(const std::string& host, int port) override;
       void disconnect() override;
 
       size_t send(const unsigned char* buffer, const size_t size) override;

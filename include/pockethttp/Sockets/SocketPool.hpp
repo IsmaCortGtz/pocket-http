@@ -4,6 +4,7 @@
 #include "pockethttp/Logs.hpp"
 #include "pockethttp/Timestamp.hpp"
 #include "pockethttp/Sockets/SocketWrapper.hpp"
+#include "pockethttp/Results.hpp"
 #include <algorithm>
 #include <map>
 #include <memory>
@@ -17,6 +18,7 @@ namespace pockethttp {
 
   class SocketPool {
     private:
+      static int last_result;
       static std::map<std::string, pockethttp::SocketCreator> protocols_;
       static std::map<std::string, std::vector<std::shared_ptr<pockethttp::SocketWrapper>>> pool_;
 
@@ -49,7 +51,8 @@ namespace pockethttp {
         }
 
         auto newSocket = socketCreator->second();
-        if (newSocket->connect(host, port)) {
+        last_result = newSocket->connect(host, port);
+        if (last_result > 0) {
           pockethttp_log("[SocketPool] createNewSocket: connection successful");
           return newSocket;
         } else {
@@ -59,6 +62,10 @@ namespace pockethttp {
       }
 
     public:
+      static int getLastState() {
+        return last_result;
+      }
+
       static std::shared_ptr<pockethttp::SocketWrapper> getSocket(const std::string& protocol, const std::string& host, uint16_t port) {
         pockethttp_log("[SocketPool] getSocket: protocol=" << protocol << ", host=" << host << ", port=" << port);
         cleanupUnused();
@@ -69,6 +76,7 @@ namespace pockethttp {
         // Try to reuse existing connection
         if (auto socket = findAvailableSocket(connections)) {
           pockethttp_log("[SocketPool] getSocket: reusing existing socket");
+          last_result = pockethttp::HttpResult::SUCCESS;
           return socket;
         }
 
@@ -76,6 +84,7 @@ namespace pockethttp {
         if (auto newSocket = createNewSocket(protocol, host, port)) {
           connections.push_back(newSocket);
           pockethttp_log("[SocketPool] getSocket: new socket created and added to pool");
+          last_result = pockethttp::HttpResult::SUCCESS;
           return newSocket;
         }
 

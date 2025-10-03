@@ -23,6 +23,7 @@
 #ifndef POCKET_HTTP_POCKETHTTP_HPP
 #define POCKET_HTTP_POCKETHTTP_HPP
 
+#include "pockethttp/Results.hpp"
 #include "pockethttp/Buffer.hpp"
 #include "pockethttp/Timestamp.hpp"
 #include "pockethttp/Random.hpp"
