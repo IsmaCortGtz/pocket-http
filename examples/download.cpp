@@ -6,8 +6,8 @@
 
 int main (int argc, char* argv[]) {
   // Check arguments
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <url>" << std::endl;
+  if (argc < 3) {
+    std::cerr << "Usage: " << argv[0] << " <url> <filename>" << std::endl;
     return 1;
   }
 
@@ -18,7 +18,7 @@ int main (int argc, char* argv[]) {
 
   // Set response callback
   pockethttp::Response res;
-  std::ofstream file("downloaded_video.mp4", std::ios::binary);
+  std::ofstream file(argv[2], std::ios::binary);
   res.body_callback = [&file](const unsigned char* buffer, const size_t& size) {
     file.write(reinterpret_cast<const char*>(buffer), size);
   };
