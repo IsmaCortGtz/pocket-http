@@ -17,6 +17,7 @@
 #include <base64/base64.hpp>
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -36,16 +37,13 @@
 
 
 #if defined(__linux__) || defined(__FreeBSD__)
-const std::string SYSTEM_CERTS_PATH_LINUX[] = {
-    "/etc/ssl/certs/ca-certificates.crt",               // Debian / Ubuntu
-    "/etc/pki/tls/certs/ca-bundle.crt",                 // RHEL / CentOS / Fedora
-    "/etc/ssl/ca-bundle.pem",                           // SUSE
-    "/usr/share/pki/trust/anchors/ca-bundle.pem",       // SUSE variants
-    "/usr/local/share/certs/ca-root-nss.crt",           // FreeBSD
-    "/usr/share/ssl/certs/ca-bundle.crt",               // Old Linux fallback
-    "/etc/ca-certificates/extracted/tls-ca-bundle.pem", // Arch / Debian fallback
-    "/etc/ssl/ca-bundle.trust.crt",                     // SUSE fallback
-    "/etc/ssl/cert.pem"                                 // Alpine / Debian fallback
+const std::string SYSTEM_CERT_DIRS[] = {
+    "/etc/ssl/certs",
+    "/etc/pki/tls/certs",
+    "/etc/pki/ca-trust/extracted/pem",
+    "/usr/share/ca-certificates",
+    "/usr/share/pki/ca-trust-source",
+    "/usr/share/ca-certs"
 };
 #endif
 
@@ -207,28 +205,34 @@ namespace pockethttp {
     #if defined(_WIN32)
       
       pockethttp_log("[SystemCerts] Loading system CA certificates for Windows.");
-      HCERTSTORE hStore = CertOpenSystemStoreW(NULL, L"ROOT");
-      if (!hStore) {
-        pockethttp_error("[SystemCerts] Failed to open ROOT certificate store.");
-        return {};
-      }
 
-      PCCERT_CONTEXT pCertContext = nullptr;
-      while ((pCertContext = CertEnumCertificatesInStore(hStore, pCertContext)) != nullptr) {
-        std::vector<unsigned char> certBuf(
-            pCertContext->pbCertEncoded,
-            pCertContext->pbCertEncoded + pCertContext->cbCertEncoded
-        );
-
-        if (certBuf.empty() || !pockethttp::Certificates::isDER(certBuf)) {
-          pockethttp_error("[SystemCerts] Invalid DER certificate found, skipping.");
-          continue;
+      auto load_store = [&](LPCWSTR storeName) {
+        pockethttp_log("[SystemCerts] Loading from store: " + std::wstring(storeName));
+        HCERTSTORE hStore = CertOpenSystemStoreW(NULL, storeName);
+        if (!hStore) {
+          pockethttp_error("[SystemCerts] Failed to open store: " + std::wstring(storeName));
+          return;
         }
 
-        der_list.push_back(std::move(certBuf));
-      }
+        PCCERT_CONTEXT pCertContext = nullptr;
+        while ((pCertContext = CertEnumCertificatesInStore(hStore, pCertContext)) != nullptr) {
+          std::vector<unsigned char> certBuf(
+            pCertContext->pbCertEncoded,
+            pCertContext->pbCertEncoded + pCertContext->cbCertEncoded
+          );
+          
+          if (!certBuf.empty() && pockethttp::Certificates::isDER(certBuf)) {
+            der_list.push_back(std::move(certBuf));
+          }
+        }
+
+        CertCloseStore(hStore, 0);
+      };
       
-      CertCloseStore(hStore, 0);
+      load_store(L"ROOT");       // Trusted Root Certification Authorities
+      load_store(L"CA");         // Intermediate Certification Authorities
+      load_store(L"MY");         // Personal
+      load_store(L"AuthRoot");   // Third-Party Root Certification Authorities
     
     #elif defined(__APPLE__)
 
@@ -309,27 +313,47 @@ namespace pockethttp {
       
       pockethttp_log("[SystemCerts] Loading system CA certificates for Linux/FreeBSD.");
         
-      for (const auto& path : SYSTEM_CERTS_PATH_LINUX) {
-        std::ifstream file(path);
-        if (file.fail()) continue;
+      for (const auto& dir : SYSTEM_CERT_DIRS) {
+        std::filesystem::path directory(dir);
+        if (!std::filesystem::exists(directory)) continue;
+        if (!std::filesystem::is_directory(directory)) continue;
 
-        pockethttp_log("[SystemCerts] Found certificate file: " << path);
-        std::string pem((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        file.close();
+        for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+          if (!entry.is_regular_file()) continue;
 
-        std::vector<std::vector<unsigned char>> der_certs = pockethttp::Certificates::pem2Der(pem);
-        if (der_certs.empty()) {
-          pockethttp_log("[SystemCerts] No valid PEM certificates found in: " << path);
-          continue;
-        }
+          std::ifstream file(entry.path(), std::ios::binary);
+          if (file.fail()) continue;
 
-        for (auto& der : der_certs) {
-          if (der.empty() || !pockethttp::Certificates::isDER(der)) {
-            pockethttp_error("[SystemCerts] Invalid DER certificate found, skipping.");
+          std::string pem((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+          file.close();
+
+          if (pem.empty()) continue;
+
+          // Check if the content is already in DER format
+          std::vector<unsigned char> pem_buf(pem.begin(), pem.end());
+          if (pockethttp::Certificates::isDER(pem_buf)) {
+            der_list.push_back(std::move(pem_buf));
             continue;
           }
 
-          der_list.push_back(std::move(der));
+          // Not DER, clear memory
+          pem_buf.clear();
+          pem_buf.shrink_to_fit();
+
+          std::vector<std::vector<unsigned char>> der_certs = pockethttp::Certificates::pem2Der(pem);
+          if (der_certs.empty()) {
+            pockethttp_log("[SystemCerts] No valid PEM certificates found in: " << entry.path());
+            continue;
+          }
+
+          for (auto& der : der_certs) {
+            if (der.empty() || !pockethttp::Certificates::isDER(der)) {
+              pockethttp_error("[SystemCerts] Invalid DER certificate found, skipping.");
+              continue;
+            }
+
+            der_list.push_back(std::move(der));
+          }
         }
 
         break;
