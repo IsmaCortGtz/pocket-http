@@ -385,11 +385,7 @@ namespace pockethttp {
     }
 
     void SystemCerts::cleanup() {
-      #ifdef USE_POCKET_HTTP_MOZILLA_ROOT_CERTS
-        int end = static_cast<int>(certs.size() - TAs_NUM);
-      #else
-        int end = static_cast<int>(certs.size());
-      #endif
+      int end = static_cast<int>(certs.size());
 
       if (end <= 0) return;
       pockethttp_log("[SystemCerts] Cleaning up " << end << " loaded CA certificates.");
@@ -408,7 +404,7 @@ namespace pockethttp {
     }
 
     void SystemCerts::init() {
-      if (!certs.empty() || initialized) {
+      if (!pockethttp::SystemCerts::certs.empty() || pockethttp::SystemCerts::initialized) {
         pockethttp_log("[SystemCerts] Certificates already loaded.");
         return;
       }
@@ -416,7 +412,7 @@ namespace pockethttp {
       initialized = true;
       std::atexit(pockethttp::SystemCerts::cleanup);
 
-      std::vector<std::vector<unsigned char>> der_list = loadSystemCerts();
+      std::vector<std::vector<unsigned char>> der_list = pockethttp::SystemCerts::loadSystemCerts();
       if (der_list.empty()) {
         pockethttp_log("[SystemCerts] No system certificates loaded.");
       } else {
@@ -427,15 +423,29 @@ namespace pockethttp {
             continue;
           }
 
-          certs.push_back(ta);
+          pockethttp::SystemCerts::certs.push_back(ta);
         }
-        pockethttp_log("[SystemCerts] Successfully loaded " << certs.size() << " BearSSL trust anchors.");
+        pockethttp_log("[SystemCerts] Successfully loaded " << pockethttp::SystemCerts::certs.size() << " BearSSL trust anchors.");
       }
 
       #ifdef USE_POCKET_HTTP_MOZILLA_ROOT_CERTS
         // Load Mozilla's root CA certificates
-        pockethttp_log("[SystemCerts] Loading " << TAs_NUM << " Mozilla's root CA certificates.");
-        certs.insert(certs.end(), TAs, TAs + TAs_NUM);
+        pockethttp_log("[SystemCerts] Loading " << pockethttp::MozillaCA::derCAs.size() << " Mozilla's root CA certificates.");
+
+        for (std::vector<unsigned char>& der : pockethttp::MozillaCA::derCAs) {
+          if (!pockethttp::Certificates::isDER(der)) {
+            pockethttp_error("[SystemCerts] Invalid DER certificate found in Mozilla's CA list, skipping.");
+            continue;
+          }
+          
+          br_x509_trust_anchor ta;
+          if (!pockethttp::Certificates::der2Anchor(der, &ta)) {
+            pockethttp_error("[SystemCerts] Failed to convert a certificate to BearSSL format, skipping.");
+            continue;
+          }
+
+          pockethttp::SystemCerts::certs.push_back(ta);
+        }
       #endif
     }
   #endif // USE_POCKET_HTTP_BEARSSL

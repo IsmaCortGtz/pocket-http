@@ -1,156 +1,309 @@
 #!/usr/bin/env python3
 
-from cryptography import x509
-from cryptography.utils import CryptographyDeprecationWarning
-from cryptography.hazmat.primitives.asymmetric import rsa, ec
-from cryptography.hazmat.backends import default_backend
-import sys
-import re
-import json
-import warnings
+#### OLD CODE ####
 
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+# from cryptography import x509
+# from cryptography.utils import CryptographyDeprecationWarning
+# from cryptography.hazmat.primitives.asymmetric import rsa, ec
+# from cryptography.hazmat.backends import default_backend
+# import sys
+# import re
+# import json
+# import warnings
 
-def is_pem(datos: bytes) -> bool:
-  return b"-----BEGIN CERTIFICATE-----" in datos
+# warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
-
-def extract_certs_pem(pem_data: bytes):
-  pattern = re.compile(
-    b'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',
-    re.DOTALL
-  )
-  return pattern.findall(pem_data)
+# def is_pem(datos: bytes) -> bool:
+#   return b"-----BEGIN CERTIFICATE-----" in datos
 
 
-def load_certs(cert_path):
-  with open(cert_path, 'rb') as f:
-    raw_data = f.read()
+# def extract_certs_pem(pem_data: bytes):
+#   pattern = re.compile(
+#     b'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',
+#     re.DOTALL
+#   )
+#   return pattern.findall(pem_data)
 
-  if is_pem(raw_data):
-    certs_pem = extract_certs_pem(raw_data)
-    certs = [x509.load_pem_x509_certificate(cert, default_backend()) for cert in certs_pem]
-  else:
-    certs = [x509.load_der_x509_certificate(raw_data, default_backend())]
+
+# def load_certs(cert_path):
+#   with open(cert_path, 'rb') as f:
+#     raw_data = f.read()
+
+#   if is_pem(raw_data):
+#     certs_pem = extract_certs_pem(raw_data)
+#     certs = [x509.load_pem_x509_certificate(cert, default_backend()) for cert in certs_pem]
+#   else:
+#     certs = [x509.load_der_x509_certificate(raw_data, default_backend())]
   
-  return certs
+#   return certs
 
 
-def get_cert_json(cert):
-  cert_obj = {}
-  cert_obj["dn"] = list(cert.subject.public_bytes())
-  cert_obj["flags"] = 1 if cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca else 0
+# def get_cert_json(cert):
+#   cert_obj = {}
+#   cert_obj["dn"] = list(cert.subject.public_bytes())
+#   cert_obj["flags"] = 1 if cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca else 0
 
-  # Get Public Key
-  public_key = cert.public_key()
+#   # Get Public Key
+#   public_key = cert.public_key()
 
-  if isinstance(public_key, rsa.RSAPublicKey):
-    # Get N and E as bytes big-endian
-    numbers = public_key.public_numbers()
-    cert_obj["pkey"] = {}
-    cert_obj["pkey"]["type"] = "BR_KEYTYPE_RSA"
-    cert_obj["pkey"]["key"] = {}
-    cert_obj["pkey"]["key"]["n"] = list(numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, byteorder='big'))
-    cert_obj["pkey"]["key"]["e"] = list(numbers.e.to_bytes((numbers.e.bit_length() + 7) // 8, byteorder='big'))
+#   if isinstance(public_key, rsa.RSAPublicKey):
+#     # Get N and E as bytes big-endian
+#     numbers = public_key.public_numbers()
+#     cert_obj["pkey"] = {}
+#     cert_obj["pkey"]["type"] = "BR_KEYTYPE_RSA"
+#     cert_obj["pkey"]["key"] = {}
+#     cert_obj["pkey"]["key"]["n"] = list(numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, byteorder='big'))
+#     cert_obj["pkey"]["key"]["e"] = list(numbers.e.to_bytes((numbers.e.bit_length() + 7) // 8, byteorder='big'))
 
-  elif isinstance(public_key, ec.EllipticCurvePublicKey):
-    # Get Q (public point) withot compression
-    numbers = public_key.public_numbers()
-    x_bytes = numbers.x.to_bytes((numbers.x.bit_length() + 7) // 8, byteorder='big')
-    y_bytes = numbers.y.to_bytes((numbers.y.bit_length() + 7) // 8, byteorder='big')
-    q_bytes = b'\x04' + x_bytes + y_bytes
-    curve_name = public_key.curve.name
+#   elif isinstance(public_key, ec.EllipticCurvePublicKey):
+#     # Get Q (public point) withot compression
+#     numbers = public_key.public_numbers()
+#     x_bytes = numbers.x.to_bytes((numbers.x.bit_length() + 7) // 8, byteorder='big')
+#     y_bytes = numbers.y.to_bytes((numbers.y.bit_length() + 7) // 8, byteorder='big')
+#     q_bytes = b'\x04' + x_bytes + y_bytes
+#     curve_name = public_key.curve.name
 
-    cert_obj["pkey"] = {}
-    cert_obj["pkey"]["type"] = "BR_KEYTYPE_EC"
-    cert_obj["pkey"]["key"] = {}
-    cert_obj["pkey"]["key"]["curve"] = curve_name
-    cert_obj["pkey"]["key"]["q"] = list(q_bytes)
+#     cert_obj["pkey"] = {}
+#     cert_obj["pkey"]["type"] = "BR_KEYTYPE_EC"
+#     cert_obj["pkey"]["key"] = {}
+#     cert_obj["pkey"]["key"]["curve"] = curve_name
+#     cert_obj["pkey"]["key"]["q"] = list(q_bytes)
+
+#   else:
+#     print("Type of public key not supported")
+#   return cert_obj
+
+# def to_hex(num):
+#   return str(hex(num))
+
+# def to_hex_cpp(nums):
+#   array_str = ", ".join([to_hex(num) for num in nums])
+#   return "{ " + array_str + " };"
+
+# def json_to_cpp(certs_info):
+#   cpp_code = "// This file is auto-generated by parse.py\n"
+#   cpp_code += "// Do not edit it manually.\n\n"
+#   cpp_code += "#if defined(USE_POCKET_HTTP_BEARSSL) && defined(USE_POCKET_HTTP_MOZILLA_ROOT_CERTS)\n\n"
+#   cpp_code += """#if __has_include("bearssl.h")
+#   #include <bearssl.h>
+# #elif __has_include("bearssl/bearssl.h")
+#   #include <bearssl/bearssl.h>
+# #else
+#   #error "Cannot find bearssl.h or bearssl/bearssl.h"
+# #endif\n"""
+#   cpp_code += "#define TAs_NUM " + str(len(certs_info)) + "\n"
+#   cpp_code += """
+# #ifdef __cplusplus
+# extern "C" {
+# #endif
+
+# br_x509_pkey create_rsa_key(br_rsa_public_key rsa) {
+#   br_x509_pkey TA_pkey;
+#   TA_pkey.key_type = BR_KEYTYPE_RSA;
+#   TA_pkey.key.rsa = rsa;
+#   return TA_pkey;
+# }
+
+# br_x509_pkey create_ec_key(br_ec_public_key ec) {
+#   br_x509_pkey TA_pkey;
+#   TA_pkey.key_type = BR_KEYTYPE_EC;
+#   TA_pkey.key.ec = ec;
+#   return TA_pkey;
+# }\n
+# """
+
+#   trust_acnhor = "\n\nstatic const br_x509_trust_anchor TAs[" + str(len(certs_info)) + "] = { "
+#   trsuct_values = ["TA" + str(i) for i in range(len(certs_info))]
+#   trust_acnhor += ", ".join(trsuct_values) + " };"
+
+#   cpp_end = "\n\n#ifdef __cplusplus\n}\n#endif\n\n"
+#   cpp_end += "#endif // defined(USE_POCKET_HTTP_BEARSSL) && defined(USE_POCKET_HTTP_MOZILLA_ROOT_CERTS)\n"
+
+#   for i, cert in enumerate(certs_info):
+#     idx = str(i)
+#     data = "\n"
+#     data += "static const unsigned char TA" + idx + "_DN[] = " + to_hex_cpp(cert["dn"]) + "\n"
+
+#     if (cert["pkey"]["type"] == "BR_KEYTYPE_RSA"):
+#       data += "static const unsigned char TA" + idx + "_RSA_N[] = " + to_hex_cpp(cert["pkey"]["key"]["n"]) + "\n"
+#       data += "static const unsigned char TA" + idx + "_RSA_E[] = " + to_hex_cpp(cert["pkey"]["key"]["e"]) + "\n"
+#       data += "static const br_x509_pkey TA" + idx + "_pkey = create_rsa_key({ (unsigned char *)TA" + idx + "_RSA_N, sizeof TA" + idx + "_RSA_N, (unsigned char *)TA" + idx + "_RSA_E, sizeof TA" + idx + "_RSA_E });\n"
+#     else:
+#       data += "static const unsigned char TA" + idx + "_EC_Q[] = " + to_hex_cpp(cert["pkey"]["key"]["q"]) + "\n"
+#       data += "static const br_x509_pkey TA" + idx + "_pkey = create_ec_key({ BR_EC_" + cert["pkey"]["key"]["curve"] + ", (unsigned char *)TA" + idx + "_EC_Q, sizeof TA" + idx + "_EC_Q });\n"
+    
+#     data += "static const br_x509_trust_anchor TA" + idx + " = { { (unsigned char *)TA" + idx + "_DN, sizeof TA" + idx + "_DN }, " + to_hex(cert["flags"]) +  ", TA" + idx + "_pkey };\n"
+#     cpp_code += data
+#   return cpp_code + trust_acnhor + cpp_end
+
+
+# if __name__ == "__main__":
+#   if len(sys.argv) < 2:
+#     print("USAGE: python parse.py <cert.der|cert.pem|cert.crt>")
+#   else:
+#     is_json_mode = "--json" in sys.argv
+
+#     certs = load_certs(sys.argv[1])
+#     print(f"Found {len(certs)} certificate(s).")
+#     certs_info = [get_cert_json(cert) for cert in certs]
+    
+#     if is_json_mode:
+#       with open("certs_info.json", "w") as f:
+#         json.dump(certs_info, f)
+#         print("JSON created: certs_info.json")
+#     else:
+#       cpp_code = json_to_cpp(certs_info)
+#       with open("certs.hpp", "w") as f:
+#         f.write(cpp_code)
+#         print("C++ code created: certs.hpp")
+
+
+
+
+#### New Code ####
+
+import base64, sys
+
+CACERT_DESTINATION = "include/pockethttp/Sockets/certs.hpp"
+
+def is_pem(data: bytes) -> bool:
+  return b"-----BEGIN CERTIFICATE-----" in data
+
+def is_der(data: bytes) -> bool:
+  if len(data) < 2:
+    return False
+    
+  # Should start with SEQUENCE (0x30)
+  if data[0] != 0x30:
+    return False
+
+  # Check the length
+  length_byte = data[1]  
+  if length_byte < 0x80:
+    # Short way: the length is directly in the byte
+    expected_length = length_byte
+    actual_length = len(data) - 2
+    return expected_length == actual_length
+    
+  elif length_byte == 0x80:
+    # Indefinite form (not valid in DER)
+    return False
 
   else:
-    print("Type of public key not supported")
-  return cert_obj
+    # Long form: the byte indicates how many additional bytes contain the length
+    length_octets = length_byte & 0x7F
+        
+    if length_octets == 0 or length_octets > 4:
+      return False
+        
+    if len(data) < 2 + length_octets:
+      return False
+        
+    # Calculate content length
+    content_length = 0
+    for i in range(length_octets):
+      content_length = (content_length << 8) | data[2 + i]
 
-def to_hex(num):
-  return str(hex(num))
+    # Check that the total length matches
+    expected_total_length = 2 + length_octets + content_length
+    return len(data) == expected_total_length
 
-def to_hex_cpp(nums):
-  array_str = ", ".join([to_hex(num) for num in nums])
-  return "{ " + array_str + " };"
-
-def json_to_cpp(certs_info):
+def parse_cpp_code(certs_list):
   cpp_code = "// This file is auto-generated by parse.py\n"
   cpp_code += "// Do not edit it manually.\n\n"
-  cpp_code += "#if defined(USE_POCKET_HTTP_BEARSSL) && defined(USE_POCKET_HTTP_MOZILLA_ROOT_CERTS)\n\n"
-  cpp_code += """#if __has_include("bearssl.h")
-  #include <bearssl.h>
-#elif __has_include("bearssl/bearssl.h")
-  #include <bearssl/bearssl.h>
-#else
-  #error "Cannot find bearssl.h or bearssl/bearssl.h"
-#endif\n"""
-  cpp_code += "#define TAs_NUM " + str(len(certs_info)) + "\n"
-  cpp_code += """
-#ifdef __cplusplus
-extern "C" {
-#endif
+  cpp_code += "#ifndef POCKET_HTTP_MZ_CA_DERS_HPP\n"
+  cpp_code += "#define POCKET_HTTP_MZ_CA_DERS_HPP\n\n"
+  cpp_code += "#include <vector>\n\n"
+  cpp_code += "#if defined(USE_POCKET_HTTP_MOZILLA_ROOT_CERTS)\n"
+  cpp_code += "#define MZ_CA_NUM " + str(len(certs_list)) + "\n\n"
+  cpp_code += "#ifdef __cplusplus\n"
+  cpp_code += "extern \"C\" {\n"
+  cpp_code += "#endif // __cplusplus\n\n"
 
-br_x509_pkey create_rsa_key(br_rsa_public_key rsa) {
-  br_x509_pkey TA_pkey;
-  TA_pkey.key_type = BR_KEYTYPE_RSA;
-  TA_pkey.key.rsa = rsa;
-  return TA_pkey;
-}
+  cpp_code += "namespace pockethttp {\n\n"
+  cpp_code += "  namespace MozillaCA {\n\n"
 
-br_x509_pkey create_ec_key(br_ec_public_key ec) {
-  br_x509_pkey TA_pkey;
-  TA_pkey.key_type = BR_KEYTYPE_EC;
-  TA_pkey.key.ec = ec;
-  return TA_pkey;
-}\n
-"""
+  cpp_code += "    static std::vector<std::vector<unsigned char>> derCAs = {\n"
 
-  trust_acnhor = "\n\nstatic const br_x509_trust_anchor TAs[" + str(len(certs_info)) + "] = { "
-  trsuct_values = ["TA" + str(i) for i in range(len(certs_info))]
-  trust_acnhor += ", ".join(trsuct_values) + " };"
+  for idx, cert in enumerate(certs_list):
+    cpp_code += "      {\n"
 
-  cpp_end = "\n\n#ifdef __cplusplus\n}\n#endif\n\n"
-  cpp_end += "#endif // defined(USE_POCKET_HTTP_BEARSSL) && defined(USE_POCKET_HTTP_MOZILLA_ROOT_CERTS)\n"
+    # Format bytes as hex array
+    hex_values = [f"0x{byte:02X}" for byte in cert]
+    lines = []
+    for j in range(0, len(hex_values), 16):
+      line = ", ".join(hex_values[j:j+16])
+      lines.append(f"        {line}")
 
-  for i, cert in enumerate(certs_info):
-    idx = str(i)
-    data = "\n"
-    data += "static const unsigned char TA" + idx + "_DN[] = " + to_hex_cpp(cert["dn"]) + "\n"
+    cpp_code += ",\n".join(lines)
 
-    if (cert["pkey"]["type"] == "BR_KEYTYPE_RSA"):
-      data += "static const unsigned char TA" + idx + "_RSA_N[] = " + to_hex_cpp(cert["pkey"]["key"]["n"]) + "\n"
-      data += "static const unsigned char TA" + idx + "_RSA_E[] = " + to_hex_cpp(cert["pkey"]["key"]["e"]) + "\n"
-      data += "static const br_x509_pkey TA" + idx + "_pkey = create_rsa_key({ (unsigned char *)TA" + idx + "_RSA_N, sizeof TA" + idx + "_RSA_N, (unsigned char *)TA" + idx + "_RSA_E, sizeof TA" + idx + "_RSA_E });\n"
+    if (idx < len(certs_list) - 1):
+      cpp_code += "\n      },\n"
     else:
-      data += "static const unsigned char TA" + idx + "_EC_Q[] = " + to_hex_cpp(cert["pkey"]["key"]["q"]) + "\n"
-      data += "static const br_x509_pkey TA" + idx + "_pkey = create_ec_key({ BR_EC_" + cert["pkey"]["key"]["curve"] + ", (unsigned char *)TA" + idx + "_EC_Q, sizeof TA" + idx + "_EC_Q });\n"
-    
-    data += "static const br_x509_trust_anchor TA" + idx + " = { { (unsigned char *)TA" + idx + "_DN, sizeof TA" + idx + "_DN }, " + to_hex(cert["flags"]) +  ", TA" + idx + "_pkey };\n"
-    cpp_code += data
-  return cpp_code + trust_acnhor + cpp_end
+      cpp_code += "\n      }\n"
+  
+  cpp_code += "    };\n\n"
+  cpp_code += "  } // namespace MozillaCA\n\n"
+  cpp_code += "} // namespace pockethttp\n\n"
 
+  cpp_code += "#ifdef __cplusplus\n"
+  cpp_code += "}\n"
+  cpp_code += "#endif // __cplusplus\n\n"
+  cpp_code += "#endif // defined(USE_POCKET_HTTP_MOZILLA_ROOT_CERTS)\n\n"
+  cpp_code += "#endif // POCKET_HTTP_MZ_CA_DERS_HPP"
+
+  return cpp_code
+
+def der_list_to_cpp(data: list[bytes]):
+  der_filtered = []
+  for idx, der in enumerate(data):
+    if (not is_der(der)):
+      print("DER (idx: " + idx + ") is not a valid DER, skipping...")
+      continue
+    
+    der_filtered.append(der)
+  
+  code = parse_cpp_code(der_filtered)
+  with open(CACERT_DESTINATION, "w") as cacerts:
+    cacerts.write(code)
+  
+  print("Code writted succesfully")
+  
+
+def pem_to_cpp(data: bytes):
+  # Split PEM into DER arrays
+  der_list = []
+  pem_str = data.decode('utf-8')
+  start_marker = "-----BEGIN CERTIFICATE-----"
+  end_marker = "-----END CERTIFICATE-----"
+
+  while True:
+    start = pem_str.find(start_marker)
+    end = pem_str.find(end_marker, start)
+
+    if start == -1 or end == -1:
+      break
+
+    der = base64.b64decode(pem_str[start + len(start_marker):end])
+    der_list.append(der)
+    pem_str = pem_str[end + len(end_marker):]
+
+  der_list_to_cpp(der_list)
 
 if __name__ == "__main__":
   if len(sys.argv) < 2:
     print("USAGE: python parse.py <cert.der|cert.pem|cert.crt>")
+    sys.exit(1)
+  
+  with open(sys.argv[1], 'rb') as file:
+    data = file.read()
+  
+  if is_pem(data):
+    pem_to_cpp(data)
+    sys.exit(0)
+  elif is_der(data):
+    der_list_to_cpp([data])
+    sys.exit(0)
   else:
-    is_json_mode = "--json" in sys.argv
-
-    certs = load_certs(sys.argv[1])
-    print(f"Found {len(certs)} certificate(s).")
-    certs_info = [get_cert_json(cert) for cert in certs]
-    
-    if is_json_mode:
-      with open("certs_info.json", "w") as f:
-        json.dump(certs_info, f)
-        print("JSON created: certs_info.json")
-    else:
-      cpp_code = json_to_cpp(certs_info)
-      with open("certs.hpp", "w") as f:
-        f.write(cpp_code)
-        print("C++ code created: certs.hpp")
+    print("ERROR: The file should be a PEM or DER file format.")
+    sys.exit(1)

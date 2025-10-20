@@ -32,19 +32,19 @@ int main (int argc, char* argv[]) {
 
   // Create HTTP client
   pockethttp::Http http;
-  bool success = http.request(req, res);
-  if (!success) {
-    std::cerr << "Request failed." << std::endl;
+  int success = http.request(req, res);
+  if (success < 1) {
+    std::cerr << "Request failed: " << pockethttp::getErrorMessage(success) << std::endl;
     std::cout << "Pulled body: " << std::endl;
     std::cout << std::endl;
     std::cout << resBody << std::endl;
     std::cout << std::endl;
     return 1;
   }
-  
-  std::cout << std::endl << std::endl;
+
+  std::cout << std::endl << "<Response: " << success << ">" << std::endl;
   std::cout <<  res.version << " " << res.status << " " << res.statusText << std::endl;
   std::cout << res.headers.dump() << std::endl;
-  std::cout << resBody << std::endl << std::endl;
+  std::cout << resBody << std::endl << "</Response>" << std::endl;
   return 0;
 }
