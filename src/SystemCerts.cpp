@@ -14,7 +14,14 @@
   #endif
 #endif // USE_POCKET_HTTP_BEARSSL
 
-#include <base64/base64.hpp>
+#if __has_include("base64.hpp")
+  #include <base64.hpp>
+#elif __has_include("base64/base64.hpp")
+  #include <base64/base64.hpp>
+#else
+  #error "Cannot find base64.hpp or base64/base64.hpp"
+#endif
+
 #include <chrono>
 #include <ctime>
 #include <filesystem>
