@@ -16,7 +16,10 @@ namespace pockethttp {
         std::string& method,
         pockethttp::Headers& headers,
         pockethttp::Response& response,
-        RequestCallback& body_callback
+        RequestCallback& body_callback,
+        unsigned short& direct_count,
+        const unsigned short& max_redirects,
+        const bool& follow_redirects
       );
 
       void setDefaultHeaders(pockethttp::Headers& headers, pockethttp::Remote& remote);

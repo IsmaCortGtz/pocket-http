@@ -31,6 +31,11 @@ int main (int argc, char* argv[]) {
   std::ifstream file(argv[0], std::ios::binary);
 
   fileItem.value_callback = [&file](unsigned char* data, size_t* read_data, const size_t max_size, const size_t total_read) {
+    if (total_read == 0) {
+      file.clear();
+      file.seekg(0, std::ios::beg);
+    }
+    
     if (file.eof()) {
       *read_data = 0;
       return false;

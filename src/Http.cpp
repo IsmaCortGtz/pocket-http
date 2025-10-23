@@ -60,7 +60,8 @@ namespace pockethttp {
       }
     };
 
-    return request(remote, req.method, req.headers, res, body_callback);
+    unsigned short redirect_count = 0;
+    return request(remote, req.method, req.headers, res, body_callback, redirect_count, req.max_redirects, req.follow_redirects);
   }
 
   pockethttp::HttpResult Http::request(pockethttp::FormDataRequest& req, pockethttp::Response& res) {
@@ -245,7 +246,8 @@ namespace pockethttp {
       return true; // More data to read
     };
 
-    return request(remote, req.method, req.headers, res, body_callback);
+    unsigned short redirect_count = 0;
+    return request(remote, req.method, req.headers, res, body_callback, redirect_count, req.max_redirects, req.follow_redirects);
   }
 
   /* Private Methods */
@@ -540,7 +542,10 @@ namespace pockethttp {
     std::string& method,
     pockethttp::Headers& headers,
     pockethttp::Response& response,
-    RequestCallback& body_callback
+    RequestCallback& body_callback,
+    unsigned short& redirect_count,
+    const unsigned short& max_redirects,
+    const bool& follow_redirects
   ) {
     // Get socket
     pockethttp_log("[Http] Making request: " << method << " " << remote.path);
@@ -636,7 +641,25 @@ namespace pockethttp {
       return pockethttp::HttpResult::PARSE_HEADERS_FAILED;
     }
 
+    // Handle redirects
+    bool expects_redirect = (
+      response.status == 301 || 
+      response.status == 302 || 
+      response.status == 303 || 
+      response.status == 307 || 
+      response.status == 308
+    );
+
+    std::string location = response.headers.get("Location");
+    if (follow_redirects && expects_redirect && !location.empty()) {
+      pockethttp_log("[Http] Handling redirect to: " << location);
+    }
+
     // Parse body
+    if (response.headers.get("Transfer-Encoding") != "chunked" && !response.headers.has("Content-Length")) {
+      if (response.version == "HTTP/1.1") return pockethttp::HttpResult::SUCCESS; // In 1.1 this means no body
+    }
+
     pockethttp_log("[Http] Starting body parse");
     std::string encoding = response.headers.get("Content-Encoding");
     std::shared_ptr<pockethttp::Decompressor> decompressorPtr = nullptr;
@@ -687,10 +710,6 @@ namespace pockethttp {
         response.body_callback((const unsigned char*)buffer, (const size_t&)size);
         size = 0;
       };
-    }
-
-    if (response.headers.get("Transfer-Encoding") != "chunked" && !response.headers.has("Content-Length")) {
-      if (response.version == "HTTP/1.1") return pockethttp::HttpResult::SUCCESS; // In 1.1 this means no body
     }
 
     // Handle transfer-encoding: chunked

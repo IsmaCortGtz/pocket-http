@@ -47,12 +47,16 @@ namespace pockethttp {
     std::string url;
     Headers headers;
     std::vector<FormDataItem> form_data;
+    const bool follow_redirects = true;
+    const unsigned short max_redirects = 5;
   };
 
   struct Request {
     std::string method;
     std::string url;
     Headers headers;
+    const bool follow_redirects = true;
+    const unsigned short max_redirects = 5;
 
     // Only one of the following two are required
     std::string body = "";
