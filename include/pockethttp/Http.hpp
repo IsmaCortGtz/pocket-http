@@ -17,7 +17,7 @@ namespace pockethttp {
         pockethttp::Headers& headers,
         pockethttp::Response& response,
         RequestCallback& body_callback,
-        unsigned short& direct_count,
+        unsigned short& redirect_count,
         const unsigned short& max_redirects,
         const bool& follow_redirects
       );

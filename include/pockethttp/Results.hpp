@@ -34,9 +34,9 @@ namespace pockethttp {
     PARSE_RES_BODY_FAILED = -193,
     DECOMPRESS_RES_FAILED = -192,
     PARSE_CHUNKED_RES_FAILED = -191,
+    MAX_REDIRECTS_REACHED = -190,
 
     // GENERIC
-
     UNKNOWN_ERROR = 0,
     SUCCESS = 1,
   
@@ -92,6 +92,8 @@ namespace pockethttp {
         return "DECOMPRESS_RES_FAILED";
       case HttpResult::PARSE_CHUNKED_RES_FAILED:
         return "PARSE_CHUNKED_RES_FAILED";
+      case HttpResult::MAX_REDIRECTS_REACHED:
+        return "MAX_REDIRECTS_REACHED";
 
       // GENERIC
 

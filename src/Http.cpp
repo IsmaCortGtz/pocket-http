@@ -13,6 +13,7 @@
 #include "pockethttp/Http.hpp"
 #include "pockethttp/Buffer.hpp"
 #include "pockethttp/Decompress.hpp"
+#include "pockethttp/Request.hpp"
 #include <cstring>
 #include <cctype>
 
@@ -642,17 +643,60 @@ namespace pockethttp {
     }
 
     // Handle redirects
-    bool expects_redirect = (
-      response.status == 301 || 
-      response.status == 302 || 
-      response.status == 303 || 
-      response.status == 307 || 
-      response.status == 308
-    );
+    bool redirect_get = (response.status == 301 || response.status == 302 || response.status == 303);
+    bool redirect_same = (response.status == 307 || response.status == 308);
 
-    std::string location = response.headers.get("Location");
-    if (follow_redirects && expects_redirect && !location.empty()) {
+    std::string location = pockethttp::utils::normalize_url(response.headers.get("Location"));
+    std::string newMethod = method;
+    if (redirect_get) newMethod = "GET";
+
+    pockethttp::Remote new_remote;
+
+    if (location.find("http://") == 0 || location.find("https://") == 0) {
+      // Absolute redirect
+      new_remote = pockethttp::utils::parseUrl(location);
+    } else if (!location.empty()) {
+      // Relative redirect
+      new_remote.protocol = remote.protocol;
+      new_remote.host = remote.host;
+      new_remote.port = remote.port;
+
+      if (location[0] == '/') {
+        new_remote.path = location;
+      } else {
+        // Append to current path
+        size_t last_slash = remote.path.find_last_of('/');
+        if (last_slash != std::string::npos) {
+          new_remote.path = remote.path.substr(0, last_slash + 1) + location;
+        } else {
+          new_remote.path = "/" + location;
+        }
+      }
+    }
+
+    headers.set("Host", new_remote.host);
+    if (follow_redirects && (redirect_get || redirect_same) && !location.empty()) {
+
+      if (redirect_count >= max_redirects) {
+        pockethttp_error("[Http] Maximum redirects reached: " << max_redirects);
+        socket->disconnect();
+        return pockethttp::HttpResult::MAX_REDIRECTS_REACHED;
+      }
+
+      redirect_count++;
       pockethttp_log("[Http] Handling redirect to: " << location);
+      socket->disconnect();
+
+      return this->request(
+        new_remote,
+        newMethod,
+        headers,
+        response,
+        body_callback,
+        redirect_count,
+        max_redirects,
+        follow_redirects
+      );
     }
 
     // Parse body

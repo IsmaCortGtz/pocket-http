@@ -65,6 +65,55 @@ namespace pockethttp {
       }
     }
 
+    std::string url_encode(const std::string& decoded, const std::string& safe) {
+      std::string out;
+      char hexChars[] = "0123456789ABCDEF";
+
+      for (unsigned char c : decoded) {
+        if (isalnum(c) || safe.find(c) != std::string::npos) {
+          out += c;
+        } else if (c == ' ') {
+          out += '+';
+        } else {
+          out += '%';
+          out += hexChars[(c >> 4) & 0x0F];
+          out += hexChars[c & 0x0F];
+        }
+      }
+
+      return out;
+    }
+
+    std::string url_decode(const std::string& encoded) {
+      std::string out;
+      
+      for (size_t i = 0; i < encoded.size(); ++i) {
+        if (encoded[i] == '%' && i + 2 < encoded.size()) {
+          std::string hex = encoded.substr(i + 1, 2);
+          out += static_cast<char>(std::stoi(hex, nullptr, 16));
+          i += 2;
+        } else if (encoded[i] == '+') {
+          out += ' ';
+        } else {
+          out += encoded[i];
+        }
+      }
+
+      return out;
+    }
+
+    std::string normalize_url(const std::string &raw_url) {
+      // Replace spaces with %20
+      std::string url = url_decode(raw_url);
+      size_t pos = 0;
+      while ((pos = url.find(' ', pos)) != std::string::npos) {
+        url.replace(pos, 1, "%20");
+        pos += 3; // Move past the inserted %20
+      }
+
+      return url;
+    }
+
   } // namespace utils
 
 } // namespace pockethttp

@@ -6,19 +6,28 @@
 int main (int argc, char* argv[]) {
   // Check arguments
   if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <url> <encoding (optional = 'identity')>" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " <url> <redirects [true|false]> <encoding (optional = 'identity')>" << std::endl;
     return 1;
   }
 
   // Set encoding
   std::string encoding = "identity";
-  if (argc >= 3) encoding = argv[2];
+  if (argc >= 4) encoding = argv[3];
 
   // Create request
   pockethttp::Request req;
   req.method = "GET";
   req.url = argv[1];
   req.headers.set("Accept-Encoding", encoding);
+  req.max_redirects = 5;
+
+  if (argc >= 3 && (std::string(argv[2]) == "true")) {
+    std::cout << "Follow redirects: " << argv[2] << std::endl;
+    req.follow_redirects = true;
+  } else {
+    std::cout << "Not following redirects." << std::endl;
+    req.follow_redirects = false;
+  }
 
   // Set response callback
   pockethttp::Response res;

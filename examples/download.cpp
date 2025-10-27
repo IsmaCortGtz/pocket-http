@@ -15,6 +15,8 @@ int main (int argc, char* argv[]) {
   pockethttp::Request req;
   req.method = "GET";
   req.url = argv[1];
+  req.follow_redirects = true;
+  req.max_redirects = 5;
 
   // Set response callback
   pockethttp::Response res;

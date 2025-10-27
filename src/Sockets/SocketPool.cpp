@@ -2,9 +2,12 @@
 #include "pockethttp/Sockets/TCPSocket.hpp"
 #include "pockethttp/Results.hpp"
 
-#ifdef USE_POCKET_HTTP_BEARSSL
-#include "pockethttp/Sockets/TLSSocket.hpp"
-#endif // USE_POCKET_HTTP_BEARSSL
+#if defined(USE_POCKET_HTTP_MBEDTLS)
+  #include "pockethttp/Sockets/MbedTLSSocket.hpp"
+#elif defined(USE_POCKET_HTTP_BEARSSL)
+  #include "pockethttp/Sockets/TLSSocket.hpp"
+#endif
+
 
 #include <map>
 #include <memory>
@@ -19,9 +22,11 @@ namespace pockethttp {
   
   std::map<std::string, pockethttp::SocketCreator> SocketPool::protocols_ = {
     {"http", []() { return std::make_shared<pockethttp::TCPSocket>(); }},
-    #ifdef USE_POCKET_HTTP_BEARSSL
-    {"https", []() { return std::make_shared<pockethttp::TLSSocket>(); }},
-    #endif // USE_POCKET_HTTP_BEARSSL
+    #if defined(USE_POCKET_HTTP_MBEDTLS)
+      {"https", []() { return std::make_shared<pockethttp::MbedTLSSocket>(); }},
+    #elif defined(USE_POCKET_HTTP_BEARSSL)
+      {"https", []() { return std::make_shared<pockethttp::TLSSocket>(); }},
+    #endif
   };
 
 } // namespace pockethttp

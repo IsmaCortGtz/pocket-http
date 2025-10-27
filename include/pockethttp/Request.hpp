@@ -47,16 +47,16 @@ namespace pockethttp {
     std::string url;
     Headers headers;
     std::vector<FormDataItem> form_data;
-    const bool follow_redirects = true;
-    const unsigned short max_redirects = 5;
+    bool follow_redirects = true;
+    unsigned short max_redirects = 5;
   };
 
   struct Request {
     std::string method;
     std::string url;
     Headers headers;
-    const bool follow_redirects = true;
-    const unsigned short max_redirects = 5;
+    bool follow_redirects = true;
+    unsigned short max_redirects = 5;
 
     // Only one of the following two are required
     std::string body = "";
@@ -78,11 +78,23 @@ namespace pockethttp {
     size_t last_boundary_offset = 0;
   };
 
+  struct URLParts {
+    std::string scheme;
+    std::string host;
+    std::string port;
+    std::string path;
+    std::string query;
+    std::string fragment;
+  };
+
   namespace utils {
 
     Remote parseUrl(const std::string& url);
     std::string getProtocol(const std::string& url);
-    
+    std::string url_encode(const std::string& decoded, const std::string& safe = "-_.~");
+    std::string url_decode(const std::string& encoded);
+    std::string normalize_url(const std::string &raw_url);
+
   } // namespace utils
 
 } // namespace pockethttp
