@@ -1,5 +1,8 @@
 # pocket-http
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FIsmaCortGtz%2Fpocket-http.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FIsmaCortGtz%2Fpocket-http?ref=badge_shield)
+![Cpp17](https://img.shields.io/badge/Made_for-C++17-blue)
+![HTTP](https://img.shields.io/badge/Implements-HTTP-red)
+![HTTPS](https://img.shields.io/badge/Implements-HTTPS-green)
 
 
 A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-compact package.
@@ -8,7 +11,7 @@ A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-co
 
 - **Zero Dependencies**: Compiles with a single command without linking any external libraries.
 - **Cross-Platform**: Works seamlessly on Linux, macOS, and Windows.
-- **HTTP/HTTPS Support**: Built-in TLS support via embedded [`BearSSL`](https://bearssl.org/).
+- **HTTP/HTTPS Support**: Built-in TLS support via embedded [`BearSSL`](https://bearssl.org/) or [`Mbed-TLS`](https://github.com/Mbed-TLS/mbedtls).
 - **Memory Efficient**: Chunked streaming keeps memory usage low and constant.
 - **Automatic Compression**: Built-in Gzip and Deflate decompression via [`miniz`](https://github.com/richgel999/miniz).
 - **Smart Socket Pooling**: Automatic connection reuse with intelligent cleanup.
@@ -19,7 +22,7 @@ A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-co
 ### Core Components
 
 - **HTTP Client**: Full HTTP/1.1 implementation with chunked transfer encoding.
-- **TLS Support**: Secure HTTPS connections via embedded [`BearSSL`](https://bearssl.org/).
+- **TLS Support**: Secure HTTPS connections via embedded [`BearSSL`](https://bearssl.org/) or [`Mbed-TLS`](https://github.com/Mbed-TLS/mbedtls).
 - **Socket Pool**: Automatic connection reuse with timestamp-based cleanup.
 - **Decompression**: Automatic Gzip/Deflate handling via [`miniz`](https://github.com/richgel999/miniz).
 - **Headers Management**: Complete HTTP headers parsing and manipulation.
@@ -27,6 +30,7 @@ A lightweight, cross-platform HTTP/HTTPS client library for C++17 in an ultra-co
 ### Embedded Libraries
 
 - [**`BearSSL`**](https://bearssl.org/): Lightweight TLS implementation (no OpenSSL dependency).
+- [**`Mbed-TLS`**](https://github.com/Mbed-TLS/mbedtls): TLS implementation.
 - [**`miniz`**](https://github.com/richgel999/miniz): High-performance compression library.
 
 ## 🏗️ Architecture
@@ -50,9 +54,12 @@ First of all, you need to clone the repository.
 
 ```bash
 git clone https://github.com/IsmaCortGtz/pocket-http.git
+
+# If you want to use mbedtls you need to fetch submodules
+git submodule update --init --recursive
 ```
 
-Then, if you want to use `HTTPS` with `BearSSL` you can privide your own `certs.hpp` file on `include/pockethttp/TLS/certs.hpp`. The default one is created from the [`Mozilla CA Certificates`](https://curl.se/docs/caextract.html).
+Then, if you want to use `HTTPS` with `BearSSL` or `MbedTLS` you can privide your own `certs.hpp` file on `include/pockethttp/Sockets/certs.hpp`. The default one is created from the [`Mozilla CA Certificates`](https://curl.se/docs/caextract.html).
 
 ```bash
 # This command will create the certs.hpp file
@@ -62,22 +69,23 @@ Then, if you want to use `HTTPS` with `BearSSL` you can privide your own `certs.
 python scripts/parse.py cacert.pem
 ```
 
-### Single Command Build
+### Building
+
+You can build with `CMake`, I recommend you to use `Ninja`, but you can use `Make` if you want to,
 
 ```bash
-# Using buildzri (recommended)
-python scripts/bz.py
-```
+# Create build directory
+mkdir build
+cd build
 
-> [!IMPORTANT]  
-> You can build by your own using `g++`, `cl` or any `C++17` compiler. But you need care about including every cpp and c file as in the `buildzri.config.json`, and obviusly, you need to include the same header paths.
+# Build
+cmake .. -G Ninja -DUSE_POCKET_HTTP_MBEDTLS=ON
+ninja
+```
 
 ## 📚 Usage
 
 You can see simple examples in [`examples/`](./examples/):
-
-> [!IMPORTANT]  
-> The `buildzri.config.json` file is configured to use the amalgamated version by default, to use the separated version replace `dist/*.cpp` under the `source.*` with `src/*.cpp`.
 
 - [basic_request.cpp](./examples/basic_request.cpp)
 - [download.cpp](./examples/download.cpp)
@@ -95,10 +103,11 @@ TODO
 
 ### Compile-Time Options
 
-- `USE_POCKET_HTTP_BEARSSL`: Enable HTTPS support (recommended). WIthout this flag the TLSSocket wont be registered in SocketPool, so you can register your own implementation for HTTPS using a `SocketWrapper`.
-- `USE_POCKET_HTTP_LOG`: Enable detailed information logging for debugging (only `std::cout`).
-- `USE_POCKET_HTTP_ERR`: Enable detailed error logging for debugging (only `std::cerr`).
-- `USE_POCKET_HTTP_MOZILLA_ROOT_CERTS`: Enable Mozilla Root Certificates for HTTPS.
+- `USE_POCKET_HTTP_BEARSSL` (Default: `OFF`): Enable HTTPS support with `BearSSL`. Without this flag the TLSSocket wont be registered in SocketPool, so you can register your own implementation for HTTPS using a `SocketWrapper`.
+- `USE_POCKET_HTTP_MBEDTLS` (Default: `OFF`): Enable HTTPS support with `MbedTLS` (recommended). Without this flag the `MbedTLSSocket` wont be registered in SocketPool, so you can register your own implementation for HTTPS using a `SocketWrapper`.
+- `USE_POCKET_HTTP_LOG` (Default: `OFF`): Enable detailed information logging for debugging (only `std::cout`).
+- `USE_POCKET_HTTP_ERR` (Default: `OFF`): Enable detailed error logging for debugging (only `std::cerr`).
+- `USE_POCKET_HTTP_MOZILLA_ROOT_CERTS` (Default: `OFF`): Enable Mozilla Root Certificates for HTTPS.
 
 ## 🎯 Use Cases
 
@@ -132,7 +141,7 @@ Perfect for:
 - **Memory**: Constant ~64KB maximum usage regardless of response size
 - **Speed**: Connection reuse eliminates handshake overhead  
 - **Compression**: Automatic decompression with minimal memory overhead
-- **TLS**: Optimized BearSSL provides fast HTTPS with small footprint
+- **TLS**: Optimized BearSSL and [`Mbed-TLS`](https://github.com/Mbed-TLS/mbedtls) provides fast HTTPS with small footprint
 
 ## 🤝 Contributing
 
@@ -146,6 +155,7 @@ Copyright 2013-2014 RAD Game Tools and Valve Software. Copyright 2010-2014 Rich 
 - bearssl: MIT from [bearssl.org](https://bearssl.org/). 
 Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>.
 - base64: Base64 encoder/decoder library: MIT from [tobiaslocker/base64](). Copyright (c) 2019 Tobias Locker.
+- mbedTLS: [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) or [GPL-2.0-or-later](https://spdx.org/licenses/GPL-2.0-or-later.html) from [Mbed-TLS/mbedtls](https://github.com/Mbed-TLS/mbedtls). (Using [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html))
 
 ---
 
